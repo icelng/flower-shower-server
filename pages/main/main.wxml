@@ -1,0 +1,67 @@
+<!--pages/main/main.wxml-->
+
+<view class="head">
+  <image style="width: 100%;" src="/images/background.jpg" mode="aspectFill"></image>
+</view>
+
+<view style="display: flex; flex-direction: row; justify-content: flex-start;">
+  <button bindtap="btnAddTimer" type="primary" size="mini">添加定时器</button>
+  <button bindtap="btnStartMotor" type="primary" size="mini">启动电机</button>
+  <button bindtap="btnStopMotor" type="primary" size="mini">停止电机</button>
+  <button bindtap="btnAdjSystemTime" type="primary" size="mini">校准时间</button>
+</view>
+<scroll-view scroll-y="true" style="height: 100%; padding-left: 2%; padding-right: 2%; top: 2%;" >
+  <view style="height: 100rpx;" wx:for="{{timers}}">
+    <view style="display: flex; flex-direction: row; justify-items: left;">
+      <rich-text nodes="<h3>开始时间: {{item.startTime}}</h3><p>持续时间: {{item.duration}}</p>"/>
+      <view style="position: absolute; height: 100rpx; right: 5%; display: flex; align-items: center;">
+        <button bindtap="btnDeleteTimer" data-timer-no="{{item.timerNo}}" type="warn" size="mini">删除</button>
+      </view>
+    </view>
+  </view>
+</scroll-view>
+
+<page-container 
+  show="{{isShowAddTimerContainer}}"
+  round="true"
+  overlay="true"
+  duration="300"
+  position="bottom"
+  close-on-slide-down="{{false}}"
+  bindbeforeenter="onBeforeEnter"
+  bindenter="onEnter"
+  bindafterenter="onAfterEnter"
+  bindbeforeleave="onBeforeLeave"
+  bindleave="onLeave"
+  bindafterleave="onAfterLeave"
+  bindclickoverlay="onClickOverlay"
+  custom-style="{{customStyle}}"
+  overlay-style="{{overlayStyle}}"
+>
+<view class="add-timer-page">
+  <view style="position: absolute; top: 10%; display: flex; flex-direction: row; justify-content: center; width: 100%;">
+    <view style="display: flex; flex-direction: column; width: 80%;">
+      <picker mode="time" value="{{pickAddStartTime}}" start="00:00" end="23:59" bindchange="onPickAddStartTimeChange">
+        <view class="label">开始时间: </view>
+        <view class="weui-cells" style="width: 200 rpx;">
+          <view class="weui-cell weui-cell_input">
+            <input class="weui-input" value="{{pickAddStartTime}}" disabled/>
+          </view>
+        </view>
+      </picker>
+      <picker mode="multiSelector" value="{{pickAddDuration}}"  bindchange="onPickAddDurationChange" index="{{pickerAddDurationIndex}}" range="{{pickerMinutesSecsArray}}">
+        <view class="label">持续时间: </view>
+        <view class="weui-cells" style="width: 200 rpx;">
+          <view class="weui-cell weui-cell_input">
+            <input class="weui-input" value="{{pickerMinutesSecsArray[0][pickerAddDurationIndex[0]]}}{{pickerMinutesSecsArray[1][pickerAddDurationIndex[1]]}}" disabled/>
+          </view>
+        </view>
+      </picker>
+    </view>
+  </view>
+  <view style="position: absolute; bottom: 8%; width: 100%; display: flex; flex-direction: row; justify-content: center; align-items: center;">
+    <button bindtap="btnCancelAddTimer" size="mini">取消</button>
+    <button bindtap="btnDoAddTimer" type="primary" size="mini" >确定</button>
+  </view>
+</view>
+</page-container>

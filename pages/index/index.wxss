@@ -1,0 +1,58 @@
+/**index.wxss**/
+.userinfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #aaa;
+}
+
+.userinfo-avatar {
+  overflow: hidden;
+  width: 128rpx;
+  height: 128rpx;
+  margin: 20rpx;
+  border-radius: 50%;
+}
+
+.usermotto {
+  margin-top: 200px;
+}
+
+/**.device-item {
+  height: 100rpx;
+}**/
+
+.head {
+  height: 20%;
+  width: 100%;
+}
+
+.device-item {
+  margin-bottom:24rpx;
+  width: 96%;
+  background: rgb(228, 238, 240);
+  border-radius: 18rpx;
+  box-shadow: 2px 2px 2px #cdcfcf;
+ }
+
+ .scan-device-item {
+  margin-bottom:24rpx;
+  width: 96%;
+  background: rgb(228, 238, 240);
+  border-radius: 18rpx;
+  box-shadow: 2px 2px 2px #cdcfcf;
+ }
+
+ .loader {
+  border: 5rpx solid #f3f3f3; /* Light grey */
+  border-top: 5rpx solid #3498db; /* Blue */
+  border-radius: 80%;
+  width: 40rpx;
+  height: 40rpx;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
