@@ -1,0 +1,101 @@
+<!--pages/timer-mgt/timer-mgt.wxml-->
+<view style="height: 100%; display: flex; flex-direction: column;">
+  <view style="flex: 2"></view>
+  <view style="flex: 2; display: flex; justify-content: center; align-items: center;">
+    <view wx:if="{{timers.length === 0}}" style="padding: 8%;">
+      <text>暂无定时浇水任务，点击 "+" 来添加一个吧!\nヽ(￣▽￣)و</text>
+    </view>
+    <view wx:elif="{{wateringStatus.isWatering}}" class="timer-status">
+      <view style="display: flex; align-items: center;"><view class="loader"/><text style="padding-left: 12rpx;">正在浇水</text></view>
+      <view><text wx:if="{{wateringStatus.minutesLeft !== 0}}">{{wateringStatus.minutesLeft}} 分</text> {{wateringStatus.secondsLeft}} 秒后结束</view>
+    </view>
+    <view wx:else class="timer-status">
+      <view>
+        <text>下一次浇水在 </text>
+        <text wx:if="{{nextWaterTime.daysLeft !== 0}}">{{nextWaterTime.daysLeft}} 天</text>
+        <text wx:elif="{{nextWaterTime.hoursLeft !== 0}}">{{nextWaterTime.hoursLeft}} 时 {{nextWaterTime.minutesLeft}} 分</text>
+        <text wx:else><text wx:if="{{nextWaterTime.minutesLeft !== 0}}">{{nextWaterTime.minutesLeft}} 分 </text>{{nextWaterTime.secondsLeft}} 秒</text>
+        <text>后开始</text>
+      </view>
+      <view>
+        <text wx:if="{{nextWaterTime.durationMinutes != 0}}">持续时间 {{nextWaterTime.durationMinutes}} 分 {{nextWaterTime.durationSeconds}} 秒</text>
+        <text wx:else>持续时间 {{nextWaterTime.durationSeconds}} 秒</text>
+      </view>
+    </view>
+  </view>
+  <view style="flex: 2; display: flex; justify-content: flex-end; align-items: center;">
+    <view wx:if="{{wateringStatus.isWatering}}" style="height: 100%; display: flex; align-items: center;">
+      <button size="mini" bindtap="btnStopTimer" class="stop-timer-button" hover-class="stop-timer-button-hover">
+        <view style="height: 100%; display: flex; align-items: center;">
+          <image class="btn-icon" src="../../images/stop.png" ></image>
+        </view>
+      </button>
+    </view>
+    <view style="height: 100%; display: flex; align-items: center;">
+      <button size="mini" bindtap="btnAddTimer" class="add-timer-button" hover-class="add-timer-button-hover">
+        <view style="height: 100%; display: flex; align-items: center;">
+          <image class="btn-icon" src="../../images/plus.png" ></image>
+        </view>
+      </button>
+    </view>
+  </view>
+  <view style="flex: 17; overflow: scroll; display: flex; justify-content: center;">
+    <scroll-view style="height: 100%;" scroll-y="true">
+      <view style="display: flex; justify-content: center;" wx:for="{{timers}}">
+        <view class="timer-item">
+            <mp-slideview buttons="{{slideButtons}}" data-item-index="{{index}}" bindbuttontap="btnDeleteTimer">
+              <mp-cell hover='true' catchtap="btnEditTimer" data-item-index="{{index}}">
+                <rich-text nodes="<h3>开始时间: {{item.firstStartTime}}</h3><p>持续时间: {{item.duration}}</p>"/>
+              </mp-cell>
+            </mp-slideview>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</view>
+
+
+<page-container 
+  show="{{isShowAddTimerContainer}}"
+  round="true"
+  overlay="true"
+  duration="300"
+  position="bottom"
+  close-on-slide-down="{{false}}"
+  bindbeforeenter="onBeforeEnter"
+  bindenter="onEnter"
+  bindafterenter="onAfterEnter"
+  bindbeforeleave="onBeforeLeave"
+  bindleave="onLeave"
+  bindafterleave="onAfterLeave"
+  bindclickoverlay="onClickOverlay"
+  custom-style="{{customStyle}}"
+  overlay-style="{{overlayStyle}}"
+>
+<view class="add-timer-page">
+  <view style="position: absolute; top: 10%; display: flex; flex-direction: row; justify-content: center; width: 100%;">
+    <view style="display: flex; flex-direction: column; width: 80%;">
+      <picker mode="time" value="{{pickAddStartTime}}" start="00:00" end="23:59" bindchange="onPickAddStartTimeChange">
+        <view class="label">开始时间: </view>
+        <view class="weui-cells" style="width: 200 rpx;">
+          <view class="weui-cell weui-cell_input">
+            <input class="weui-input" value="{{pickAddStartTime}}" disabled/>
+          </view>
+        </view>
+      </picker>
+      <picker mode="multiSelector" value="{{pickAddDuration}}"  bindchange="onPickAddDurationChange" index="{{pickerAddDurationIndex}}" range="{{pickerMinutesSecsArray}}">
+        <view class="label">持续时间: </view>
+        <view class="weui-cells" style="width: 200 rpx;">
+          <view class="weui-cell weui-cell_input">
+            <input class="weui-input" value="{{pickerMinutesSecsArray[0][pickerAddDurationIndex[0]]}}{{pickerMinutesSecsArray[1][pickerAddDurationIndex[1]]}}" disabled/>
+          </view>
+        </view>
+      </picker>
+    </view>
+  </view>
+  <view style="position: absolute; bottom: 8%; width: 100%; display: flex; flex-direction: row; justify-content: center; align-items: center;">
+    <button bindtap="btnCancelAddTimer" size="mini">取消</button>
+    <button bindtap="btnDoAddTimer" type="primary" size="mini" >确定</button>
+  </view>
+</view>
+</page-container>

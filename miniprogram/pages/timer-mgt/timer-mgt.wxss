@@ -1,0 +1,64 @@
+/* pages/timer-mgt/timer-mgt.wxss */
+page {
+  height: 100%;
+}
+
+.timer-item {
+  margin-bottom:24rpx;
+  width: 94%;
+  background: rgb(228, 238, 240);
+  border-radius: 18rpx;
+  box-shadow: 2px 2px 2px #cdcfcf;
+  padding-left: 3%;
+ }
+
+.add-timer-button {
+  height: 100%;
+  background-color: white;
+}
+
+
+.add-timer-button-hover {
+  background-color: rgb(228, 228, 228);
+} 
+
+.stop-timer-button {
+  height: 100%;
+  background-color: white;
+}
+
+.stop-timer-button-hover {
+  background-color: rgb(228, 228, 228);
+}
+
+.btn-icon {
+  width: 46rpx;
+  height: 46rpx;
+}
+
+.timer-status {
+  padding: 12%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.add-timer-page {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+}
+
+.loader {
+  border: 5rpx solid #f3f3f3; /* Light grey */
+  border-top: 5rpx solid #3498db; /* Blue */
+  border-radius: 80%;
+  width: 40rpx;
+  height: 40rpx;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

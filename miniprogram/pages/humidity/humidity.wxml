@@ -1,0 +1,7 @@
+<!--pages/humidity/humidity.wxml-->
+<view style="height: 100%; display: flex; align-items: center; justify-content: center;">
+  <view style="padding: 8%;">
+    <view style="text-align: center;">该功能正在努力开发中，敬请期待吧！</view>
+    <view style="text-align: center;" >(◕ᴗ◕✿)</view>
+  </view>
+</view>

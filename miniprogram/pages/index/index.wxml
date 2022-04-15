@@ -1,0 +1,47 @@
+<!--index.wxml-->
+
+<image style="width: 100%;" src="/images/background.jpg" mode="widthFix"></image>
+<view style=" width:100%; display: flex; flex-direction:row; justify-content: flex-end; position:relative; top: -40rpx;">
+  <view style="padding-right: 8%;">
+    <button bindtap="btnShowScanContainer" type="primary" size="mini" style="margin-bottom: 0;" >扫描新设备</button>
+  </view>
+</view>
+<scroll-view scroll-y="true" bindscrolltoupper="upper" bindscrolltolower="lower" bindscroll="scroll" scroll-into-view="{{toView}}" scroll-top="{{scrollTop}}">
+  <view wx:if="{{historyDevices.length===0}}" style="padding: 10%;">
+    <text>暂无历史连接设备，赶紧点击“扫描新设备”按钮，连接您的浇花器吧 \nヾ(✿ﾟ▽ﾟ)ノ</text>
+  </view>
+  <view wx:else style="display: flex; flex-direction: column; align-items: center;">
+    <view class="device-item" wx:for="{{historyDevices}}">
+      <mp-slideview buttons="{{slideButtons}}" data-item-index="{{index}}" bindbuttontap="btnRemoveHistoryDevice">
+        <mp-cell hover='true' catchtap="btnConnectHistoryDevice" data-item-index="{{index}}" disabled="{{isConnectDisabled}}"><rich-text nodes="<h3>{{item.name}}</h3><p>{{item.deviceId}}</p>"/></mp-cell>
+      </mp-slideview>
+    </view>
+  </view >
+</scroll-view>
+
+<page-container 
+  show="{{showScanContainer}}"
+  round="{{true}}"
+  overlay="{{true}}"
+  duration="{{300}}"
+  position="bottom"
+  overlay-style="background-color: rgba(0, 0, 0, 0.7); filter: blur(4px);"
+  close-on-slide-down="{{false}}"
+  bindafterenter="onScanContainerEnter"
+  bindbeforeleave="onScanContainerLeave"
+>
+<view style="display: flex; justify-content: center;">
+  <view style="display: flex; align-items: center; padding-top: 18rpx; padding-bottom: 18rpx;">
+    <view class="loader"></view>
+    <view style="padding-left: 24rpx;" >正在努力为您寻找设备(✪ω✪)</view>
+  </view>
+</view>
+<scroll-view style="height: 800rpx;" scroll-y="true" bindscrolltoupper="upper" bindscrolltolower="lower" bindscroll="scroll" scroll-into-view="{{toView}}" scroll-top="{{scrollTop}}">
+  <view style="display: flex; justify-content: center;" wx:for="{{devices}}">
+    <view class="scan-device-item">
+      <mp-cell hover='true' catchtap="btnConnectDevice" data-item-index="{{index}}" disabled="{{isConnectDisabled}}"><rich-text nodes="<h3>{{item.name}}</h3><p>{{item.deviceId}}</p>"/></mp-cell>
+    </view>
+  </view>
+</scroll-view>
+
+</page-container>

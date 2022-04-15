@@ -1,0 +1,5 @@
+/* pages/humidity/humidity.wxss */
+
+page {
+  height: 100%;
+}

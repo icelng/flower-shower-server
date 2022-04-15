@@ -1,0 +1,46 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/timer-mgt/timer-mgt",
+    "pages/humidity/humidity",
+    "pages/config/config"
+  ],
+  "tabBar": {
+    "color": "#000",
+    "selectedColor": "#3ccc11",
+    "backgroundColor": "#fff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/timer-mgt/timer-mgt",
+        "text": "定时浇水",
+        "iconPath": "images/alarm.png",
+        "selectedIconPath": "images/alarm.png"
+      },
+      {
+        "pagePath": "pages/humidity/humidity",
+        "text": "湿度控制",
+        "iconPath": "images/humidity.png",
+        "selectedIconPath": "images/humidity.png"
+      },
+      {
+        "pagePath": "pages/config/config",
+        "text": "设置",
+        "iconPath": "images/config.png",
+        "selectedIconPath": "images/config.png"
+      }
+    ]
+  },
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "螺旋艺术家的梦",
+    "navigationBarTextStyle": "black",
+    "navigationStyle": "custom"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "useExtendedLib": {
+    "weui": true
+  }
+}
