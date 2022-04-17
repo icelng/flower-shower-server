@@ -17,6 +17,8 @@ const MSECS_PER_MINUTE: number = 60 * MSECS_PER_SEC
 const MSECS_PER_HOUR: number = 60 * MSECS_PER_MINUTE
 const MSECS_PER_DAY: number = 24 * MSECS_PER_HOUR
 
+const DEFAULT_WATERING_STATUS: WateringStatus = {timerNo: 0, isWatering: false, minutesLeft: 0, secondsLeft: 0}
+
 interface MotorTimer {
   timerNo: number,
   firstStartTimestampMs: number,
@@ -59,7 +61,7 @@ Page({
     pickAddStartTime: "13:00",
     // timers: [] as Array<FormattedMotorTimer>
     nextWaterTime: {} as NextWaterTime,
-    wateringStatus: {} as WateringStatus,
+    wateringStatus: DEFAULT_WATERING_STATUS as WateringStatus,
     timers: [{timerNo: 2, firstStartTime: "6 时 12 分", duration: "3 分 12 秒"}] as Array<FormattedMotorTimer>,
   },
 
@@ -143,7 +145,7 @@ Page({
 
   refreshPage() {
     if (this.rawTimers.length === 0) {
-      this.setData({timers: []})
+      this.setData({timers: [], wateringStatus: DEFAULT_WATERING_STATUS})
       return
     }
 
