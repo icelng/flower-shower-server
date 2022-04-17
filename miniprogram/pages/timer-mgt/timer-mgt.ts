@@ -374,6 +374,19 @@ Page({
     }
   },
 
+  checkBLEStatus() {
+    if (this.device !== undefined && this.timerService !== undefined)
+    wx.showModal({
+      confirmText: "嗯嗯",
+      title: "蓝牙已断开，请重新连接!(ó﹏ò｡)",
+      success: (res) => {
+        if (res.confirm) {
+          wx.navigateTo({url: "../index/index"})
+        }
+      }
+    })
+  },
+
   receiveTimerList(value: ArrayBuffer): void {
     const buf = Buffer.from(value)
     this.rawTimers = decodeMotorTimers(buf)

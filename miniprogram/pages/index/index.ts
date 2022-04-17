@@ -84,6 +84,11 @@ Page({
         var connectedDevice:BLEDevice = {name: device.name, deviceId: device.deviceId}
         app.globalData.connectedDevice = connectedDevice
         this.saveHistoryDevice(connectedDevice)
+        wx.onBLEConnectionStateChange(function(result: WechatMiniprogram.OnBLEConnectionStateChangeCallbackResult) {
+          if (!result.connected) {
+            onConnectionClose()
+          }
+        })
         wx.switchTab({
           url: '../timer-mgt/timer-mgt',
           success: () => {
@@ -199,3 +204,16 @@ Page({
     })
 }
 })
+
+function onConnectionClose() {
+  wx.showModal({
+    confirmText: "嗯嗯",
+    title: "蓝牙已断开，请重新连接!(ó﹏ò｡)",
+    showCancel: false,
+    success: (res) => {
+      if (res.confirm) {
+        wx.redirectTo({url: "../index/index"})
+      }
+    }
+  })
+}
