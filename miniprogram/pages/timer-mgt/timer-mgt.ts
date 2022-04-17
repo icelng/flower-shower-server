@@ -384,8 +384,24 @@ Page({
   onUnload() {
     if (this.refreshPageTimerNo !== undefined) {
       clearInterval(this.refreshPageTimerNo)
+      this.refreshPageTimerNo = undefined
+    }
+  },
+
+  onHide() {
+    if (this.refreshPageTimerNo !== undefined) {
+      clearInterval(this.refreshPageTimerNo)
+      this.refreshPageTimerNo = undefined
+    }
+  },
+
+  
+  onShow() {
+    if (this.refreshPageTimerNo === undefined) {
+      this.refreshPageTimerNo = setInterval(this.refreshPage, 1000)
     }
   }
+
 })
 
 function decodeMotorTimers(buffer: Buffer): Array<MotorTimer> {
