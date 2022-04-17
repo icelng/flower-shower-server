@@ -3,18 +3,29 @@ App<IAppOption>({
   globalData: {
 
   },
-  onLaunch() {
-    // 展示本地存储能力
-    const logs = wx.getStorageSync('logs') || []
-    logs.unshift(Date.now())
-    wx.setStorageSync('logs', logs)
 
-    // 登录
-    wx.login({
-      success: res => {
-        console.log(res.code)
-        // 发送 res.code 到后台换取 openId, sessionKey, unionId
-      },
+  onLaunch() {
+    wx.onBLEConnectionStateChange((result: WechatMiniprogram.OnBLEConnectionStateChangeCallbackResult) => {
+      console.log("BLE connection change! deviceId: ", result.deviceId)
+      if (!result.connected) {
+        this.onConnectionClose()
+      }
     })
   },
+
+  onConnectionClose(): void {
+    wx.showModal({
+      confirmText: "嗯嗯",
+      title: "(ó﹏ò｡)蓝牙已断开，请重新连接!",
+      showCancel: false,
+      success: (res) => {
+        if (res.confirm) {
+          this.globalData.connectedDevice = undefined
+          wx.offBLEConnectionStateChange(() => {})
+          wx.redirectTo({url: "../index/index"})
+        }
+      }
+    })
+  }
+
 })

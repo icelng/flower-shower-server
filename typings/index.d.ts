@@ -10,4 +10,5 @@ interface IAppOption {
     connectedDevice?: BLEDevice
   }
   userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback,
+  onConnectionClose: () => void
 }
