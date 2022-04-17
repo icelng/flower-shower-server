@@ -1,5 +1,4 @@
 // index.ts
-// 获取应用实例
 const app = getApp<IAppOption>()
 
 Page({
@@ -10,16 +9,11 @@ Page({
     hasHistoryDevice: false,
     showScanContainer: false,
     isScanning: false,
-    isBLEInitied: false,
     isConnectDisabled: false,
   },
+  isBLEAvalabled: false,
   devicesFound: [] as Array<BLEDevice>,
-  // 事件处理函数
-  bindViewTap() {
-    wx.navigateTo({
-      url: '../logs/logs'
-    })
-  },
+  timeoutNoForReinitBLE: undefined as number | undefined,
 
   btnShowScanContainer() {
     this.setData({showScanContainer: true})
@@ -30,12 +24,15 @@ Page({
   },
 
   btnStartScanning() {
-    this.setData({isScanning: true})
-    if (this.data.isBLEInitied) {
-      wx.startBluetoothDevicesDiscovery({
-        allowDuplicatesKey: false,
-      })
-    }
+    this.checkBLEEnable((isEnabled) => {
+      if (isEnabled) {
+        this.setData({isScanning: true})
+        wx.startBluetoothDevicesDiscovery({
+          allowDuplicatesKey: false,
+        })
+
+      }
+    })
   },
 
   stopScanning() {
@@ -59,15 +56,23 @@ Page({
   btnConnectDevice(event : WechatMiniprogram.BaseEvent) {
     var device = this.devicesFound[event.currentTarget.dataset.itemIndex]
     this.stopScanning()
-    this.connectDeivce(device)
+    this.checkBLEEnable((isEnabled) => {
+      if (isEnabled) this.connectDeivce(device)
+    })
   },
 
   btnConnectHistoryDevice(event : WechatMiniprogram.BaseEvent) {
     var device = this.data['historyDevices'][event.currentTarget.dataset.itemIndex]
-    this.connectDeivce(device)
+    this.checkBLEEnable((isEnabled) => {
+      if (isEnabled) this.connectDeivce(device)
+    })
   },
   
   connectDeivce(device: BLEDevice) {
+    if (!this.isBLEAvalabled) {
+      return
+    }
+
     wx.showToast({
         title: "正在连接设备",
         icon: 'loading',
@@ -89,20 +94,16 @@ Page({
             onConnectionClose()
           }
         })
-        wx.switchTab({
-          url: '../timer-mgt/timer-mgt',
-          success: () => {
-
-          }
-        })
+        wx.switchTab({url: "../timer-mgt/timer-mgt"})
       },
-      fail: () => {
+      fail: (e) => {
         wx.showToast({
             title: "连接失败！",
             icon: 'error',
             mask: false,
             duration: 1000
         })
+        console.log("Failed to connect device, ", e)
       },
       complete: () => {
         this.setData({isConnectDisabled: false})
@@ -173,18 +174,6 @@ Page({
     //   }
     // })
 
-    wx.openBluetoothAdapter({
-      mode: 'central',
-      success: () => {
-        console.log("init BLE successfully!")
-        this.setData({isBLEInitied: true})
-      },
-      fail: () => {
-        this.setData({isBLEInitied: false})
-        console.log("init BLE failed!")
-      }
-    })
-
     // 监听扫描到新设备事件
     wx.onBluetoothDeviceFound((res) => {
       res.devices.forEach((device) => {
@@ -202,13 +191,45 @@ Page({
         src: '/images/icon_del.svg', // icon的路径
       }],
     })
-}
+  },
+
+  onUnload() {
+    if (this.timeoutNoForReinitBLE !== undefined) {
+      clearTimeout(this.timeoutNoForReinitBLE)
+    }
+  },
+
+  checkBLEEnable(cb: (isEnable: boolean) => void) {
+    if (this.isBLEAvalabled) {
+      cb(true)
+      return
+    }
+
+    wx.openBluetoothAdapter({
+      mode: 'central',
+      success: () => {
+        console.log("init BLE successfully!")
+        this.isBLEAvalabled = true
+        cb(true)
+      },
+      fail: (e) => {
+        this.isBLEAvalabled = false
+        console.log("Init BLE failed!", e)
+        wx.showModal({
+          confirmText: "嗯嗯",
+          title: "(≖ᴗ≖)✧蓝牙没有被打开哟!请打开蓝牙后再尝试一下吧！",
+          showCancel: false
+        })
+        cb(false)
+      }
+    })
+  }
 })
 
 function onConnectionClose() {
   wx.showModal({
     confirmText: "嗯嗯",
-    title: "蓝牙已断开，请重新连接!(ó﹏ò｡)",
+    title: "(ó﹏ò｡)蓝牙已断开，请重新连接!",
     showCancel: false,
     success: (res) => {
       if (res.confirm) {
