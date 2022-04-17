@@ -161,12 +161,12 @@ Page({
     //   }
     // })
 
-    wx.switchTab({
-      url: '../humidity/humidity',
-      success: () => {
+    // wx.switchTab({
+    //   url: '../humidity/humidity',
+    //   success: () => {
 
-      }
-    })
+    //   }
+    // })
 
     wx.openBluetoothAdapter({
       mode: 'central',

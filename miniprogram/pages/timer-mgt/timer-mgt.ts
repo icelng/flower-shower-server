@@ -9,6 +9,8 @@ const CHAR_UUID_SYSTEM_TIME = "0000FF02-0000-1000-8000-00805F9B34FB"
 const MOTOR_TIMER_OP_ADD: number = 1
 const MOTOR_TIMER_OP_MOD: number = 2
 const MOTOR_TIMER_OP_DEL: number = 3
+const MOTOR_TIMER_OP_START: number = 4
+const MOTOR_TIMER_OP_STOP: number = 5
 
 const MSECS_PER_SEC: number = 1000
 const MSECS_PER_MINUTE: number = 60 * MSECS_PER_SEC
@@ -39,6 +41,7 @@ interface NextWaterTime {
 }
 
 interface WateringStatus {
+  timerNo: number,
   isWatering: boolean,
   minutesLeft: number,
   secondsLeft: number
@@ -68,6 +71,7 @@ Page({
   rawTimers: [] as Array<MotorTimer>,
   formattedTimers: [] as Array<FormattedMotorTimer>,
   refreshPageTimerNo: undefined as number | undefined,
+  stoppedTimers: new Map<number, number>() as Map<number, number>,  // timerNo -> restoreTimestamp
 
   onLoad() {
     var minutes = []
@@ -143,12 +147,14 @@ Page({
       return
     }
 
-    this.rawTimers = sortMotorTimers(this.rawTimers)
+    this.stoppedTimers = refreshStoppedTimers(this.stoppedTimers)
+    this.rawTimers = sortMotorTimers(this.rawTimers, this.stoppedTimers)
     this.formattedTimers = formatTimers(this.rawTimers)
+    var nextTimer = this.rawTimers[0]
     this.setData({
       timers: this.formattedTimers,
-      nextWaterTime: calNextWaterTime(this.rawTimers[0]),
-      wateringStatus: getWateringStatus(this.rawTimers[0])
+      nextWaterTime: calNextWaterTime(nextTimer),
+      wateringStatus: getWateringStatus(nextTimer, this.stoppedTimers.has(nextTimer.timerNo))
     })
   },
 
@@ -174,6 +180,53 @@ Page({
         console.log(err);
       },
       success: () => {}
+    })
+  },
+
+  btnStopTimer() {
+    if (this.device === undefined || this.timerService === undefined || this.motorTimerChar === undefined) {
+      wx.showToast({ icon: 'error', title: "请确认蓝牙已连接", duration: 1000 })
+      return;
+    }
+
+    var wateringStatus = this.data.wateringStatus
+    if (!wateringStatus.isWatering ||
+        (wateringStatus.minutesLeft === 0 && wateringStatus.secondsLeft === 0)) {
+      return
+    }
+
+    var timerNo = wateringStatus.timerNo
+    var timer: MotorTimer | undefined = undefined
+    for (let t of this.rawTimers) {
+      if (t.timerNo === timerNo) {
+        timer = t
+      }
+    }
+
+    if (timer === undefined) {
+      return
+    }
+
+    var msToStop = calTimeToStop(timer)
+    if (msToStop === 0) { return }
+
+    var buffer = Buffer.alloc(2)
+    buffer.writeUInt8(MOTOR_TIMER_OP_STOP, 0)
+    buffer.writeUInt8(timerNo, 1)
+    wx.writeBLECharacteristicValue({
+      deviceId: this.device.deviceId,
+      serviceId: this.timerService.uuid,
+      characteristicId: this.motorTimerChar.uuid,
+      value: buffer.buffer,
+      fail: (err) => {
+        wx.showToast({ icon: 'error', title: "停止失败", duration: 1000 })
+        console.log('failed to delete tiemr: write char value error, ', err)
+      },
+      success: () => {
+        wx.showToast({icon: 'success', title: "停止成功", duration: 1000})
+        this.stoppedTimers.set(timerNo, Date.now() + msToStop)
+        this.refreshPage()
+      }
     })
   },
 
@@ -323,14 +376,8 @@ Page({
 
   receiveTimerList(value: ArrayBuffer): void {
     const buf = Buffer.from(value)
-    var timers = decodeMotorTimers(buf)
-    this.rawTimers = sortMotorTimers(timers)
-    this.formattedTimers = formatTimers(this.rawTimers)
-    this.setData({
-      timers: this.formattedTimers,
-      nextWaterTime: this.rawTimers.length > 0? calNextWaterTime(this.rawTimers[0]) : undefined,
-      wateringStatus: this.rawTimers.length > 0? getWateringStatus(this.rawTimers[0]) : undefined
-    })
+    this.rawTimers = decodeMotorTimers(buf)
+    this.refreshPage()
     wx.hideToast()
   },
 
@@ -378,9 +425,16 @@ function encodeMotorTimer(timers: Array<MotorTimer>): Buffer {
   return buffer
 }
 
-function sortMotorTimers(timers: Array<MotorTimer>): Array<MotorTimer> {
+function sortMotorTimers(timers: Array<MotorTimer>, stoppedTimers: Map<number, number>): Array<MotorTimer> {
   var sortedTimers = timers.sort((a, b): number => {
+    if ((stoppedTimers.has(a.timerNo) && stoppedTimers.has(b.timerNo)) ||
+        (!stoppedTimers.has(a.timerNo) && !stoppedTimers.has(b.timerNo))) {
       return calTimeToStart(a) - calTimeToStart(b)
+    } else if (stoppedTimers.has(a. timerNo)) {
+      return 1
+    } else {
+      return -1
+    }
   })
   return sortedTimers
 }
@@ -408,11 +462,12 @@ function calNextWaterTime(timer: MotorTimer): NextWaterTime {
   return nextWaterTime
 }
 
-function getWateringStatus(timer: MotorTimer): WateringStatus | undefined {
+function getWateringStatus(timer: MotorTimer, isStopped: boolean): WateringStatus {
   var msToStop = calTimeToStop(timer)
 
   var wateringStatus: WateringStatus = {
-    isWatering: msToStop !== 0,
+    timerNo: timer.timerNo,
+    isWatering: !isStopped && msToStop !== 0,
     minutesLeft: Math.floor((msToStop % MSECS_PER_HOUR) / MSECS_PER_MINUTE),
     secondsLeft: Math.floor((msToStop % MSECS_PER_MINUTE) / MSECS_PER_SEC)
   }
@@ -460,6 +515,19 @@ function calTimeToStop(timer: MotorTimer): number {
   }
   var goneMsInPeriod = (nowTimestamp - timer.firstStartTimestampMs) % timer.periodMs
   return (goneMsInPeriod < timer.durationMs)? (timer.durationMs - goneMsInPeriod) : 0
+}
+
+function refreshStoppedTimers(stoppedTimers: Map<number, number>): Map<number, number> {
+  var nowTimestamp = Date.now()
+  var newStoppedTimers = new Map<number, number>()
+  stoppedTimers.forEach((restoreTimestamp, timerNo) => {
+    // If now timestamp is lower than restore timestamp,
+    // the timer should not be removed from stopped timers map
+    if (nowTimestamp < restoreTimestamp) {
+      newStoppedTimers.set(timerNo, restoreTimestamp)
+    }
+  })
+  return newStoppedTimers
 }
 
 function formatTimestamp(timestamp: number): string {
