@@ -11,7 +11,9 @@ interface IAppOption {
     connectedDevice?: BLEDevice
   }
   charValueChangeCallbacks?: Map<string, WechatMiniprogram.OnBLECharacteristicValueChangeCallback>
+  charValueChangeOnceCallbacks?: Map<string, WechatMiniprogram.OnBLECharacteristicValueChangeCallback>
 
   onConnectionClose: () => void,
   listenCharValueChange: (charateristicId: string, cb: WechatMiniprogram.OnBLECharacteristicValueChangeCallback) => void
+  listenCharValueChangeOnce: (charateristicId: string) => Promise<WechatMiniprogram.OnBLECharacteristicValueChangeCallbackResult>
 }

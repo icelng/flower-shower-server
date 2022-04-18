@@ -1,4 +1,5 @@
 // app.ts
+
 App<IAppOption>({
   globalData: {
     isBLEConnected: false
@@ -12,13 +13,20 @@ App<IAppOption>({
       console.log("BLE connection change! deviceId: ", result.deviceId)
       if (this.globalData.isBLEConnected && !result.connected) {
         this.charValueChangeCallbacks = undefined
+        this.charValueChangeOnceCallbacks = undefined
         this.onConnectionClose()
       } else if (!this.globalData.isBLEConnected && result.connected) {
         this.charValueChangeCallbacks = new Map();
+        this.charValueChangeOnceCallbacks = new Map();
         wx.onBLECharacteristicValueChange((result) => {
           var charId = result.characteristicId
+          var onceCb = this.charValueChangeOnceCallbacks?.get(charId)
           var cb = this.charValueChangeCallbacks?.get(charId)
-          if (cb !== undefined) {
+          if (onceCb !== undefined) {
+            this.charValueChangeOnceCallbacks?.delete(charId)
+            onceCb(result)
+
+          } else if (cb !== undefined) {
             cb(result)
           }
         })
@@ -48,5 +56,28 @@ App<IAppOption>({
       return
     }
     this.charValueChangeCallbacks.set(charateristicId, cb)
+  },
+
+  async listenCharValueChangeOnce(charateristicId: string): Promise<WechatMiniprogram.OnBLECharacteristicValueChangeCallbackResult> {
+    if (this.charValueChangeOnceCallbacks === undefined) {
+      throw "device is not connected"
+    }
+
+    if (this.charValueChangeOnceCallbacks.has(charateristicId)) {
+      throw "Too many times"
+    }
+
+    var promise = new Promise<WechatMiniprogram.OnBLECharacteristicValueChangeCallbackResult>((resolve, reject) => {
+      this.charValueChangeOnceCallbacks?.set(charateristicId, (result) => {
+        resolve(result)
+      })
+      setTimeout(() => {
+        reject("Listen charateristic timeout!")
+        this.charValueChangeCallbacks?.delete(charateristicId)
+      }, 5000)
+    })
+
+    return promise
   }
+  
 })

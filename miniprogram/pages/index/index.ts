@@ -1,5 +1,9 @@
-// index.ts
 const app = getApp<IAppOption>()
+import { getCharateristic } from "../../utils/util"
+import { Buffer } from 'buffer';
+
+const SERVICE_UUID_MAGIC = "0000000A-0000-1000-8000-00805F9B34FB"
+const CHAR_UUID_MAGIC = "00000A01-0000-1000-8000-00805F9B34FB"
 
 Page({
   data: {
@@ -68,7 +72,7 @@ Page({
     })
   },
   
-  connectDeivce(device: BLEDevice) {
+  async connectDeivce(device: BLEDevice) {
     if (!this.isBLEAvalabled) {
       return
     }
@@ -82,30 +86,38 @@ Page({
 
     this.setData({isConnectDisabled: true})
 
-    wx.createBLEConnection({
-      deviceId: device.deviceId,
-      success: () => {
-        wx.hideToast()
-        var connectedDevice:BLEDevice = {name: device.name, deviceId: device.deviceId}
-        app.globalData.connectedDevice = connectedDevice
-        this.saveHistoryDevice(connectedDevice)
-        wx.switchTab({url: "../timer-mgt/timer-mgt"})
-      },
-      fail: (e) => {
-        wx.showToast({
-            title: "连接失败！",
-            icon: 'error',
-            mask: false,
-            duration: 1000
-        })
-        console.log("Failed to connect device, ", e)
-      },
-      complete: () => {
-        this.setData({isConnectDisabled: false})
-      },
-      timeout: 10000
-    })
-    console.log("connect device: " + device.name)
+    try {
+      await wx.createBLEConnection({deviceId: device.deviceId, timeout: 10000})
+      wx.hideToast()
+    } catch(e) {
+      wx.showToast({
+          title: "连接失败！",
+          icon: 'error',
+          mask: false,
+          duration: 1000
+      })
+      console.log("Failed to connect device, ", e)
+      throw e
+    }
+
+    try {
+      var password = await this.loginBLE(device.deviceId)
+      console.log("Loging: ", password)
+    } catch(e) {
+      await wx.showModal({confirmText: "芝麻开门",
+                          title: '(￣ー￣)口令好像错了，喊一下"芝麻开门"试试？',
+                          showCancel: false})
+      await wx.closeBLEConnection({deviceId: device.deviceId})
+      app.globalData.connectedDevice = undefined
+      throw e
+    }
+
+    var connectedDevice:BLEDevice = {name: device.name, deviceId: device.deviceId}
+    app.globalData.connectedDevice = connectedDevice
+    this.saveHistoryDevice(connectedDevice)
+    wx.switchTab({url: "../timer-mgt/timer-mgt"})
+
+    this.setData({isConnectDisabled: false})
   },
 
   saveHistoryDevice(device: BLEDevice) {
@@ -218,5 +230,54 @@ Page({
         cb(false)
       }
     })
-  }
+  },
+
+  async loginBLE(deviceId: string): Promise<string> {
+    var magicChar: WechatMiniprogram.BLECharacteristic
+    try {
+      magicChar = await getCharateristic(deviceId, SERVICE_UUID_MAGIC, CHAR_UUID_MAGIC)
+    } catch(e) {
+      throw e
+    }
+
+    try {
+      await wx.notifyBLECharacteristicValueChange({deviceId: deviceId, serviceId: SERVICE_UUID_MAGIC, characteristicId: CHAR_UUID_MAGIC, state: true})
+    } catch(e) {
+      throw e
+    }
+
+
+    var password = (await wx.showModal({
+      confirmText: "冲冲冲",
+      title: '口令？',
+      editable: true,
+      showCancel: false
+    })).content
+
+    var promise = new Promise<string>((resolve, reject) => {
+      app.listenCharValueChangeOnce(magicChar.uuid).then((result) => {
+        var buffer = Buffer.from(result.value)
+        var success = buffer.readUInt8(0)
+        if (success === 1) {
+          resolve(password)
+        } else {
+          reject("Failed to login ble")
+        }
+      }).catch((e) => {
+        reject(e)
+      })
+    })
+
+    try {
+      var buffer = Buffer.from(password, "utf-8")
+      await wx.writeBLECharacteristicValue({deviceId: deviceId,
+                                            serviceId: SERVICE_UUID_MAGIC,
+                                            characteristicId: CHAR_UUID_MAGIC,
+                                            value: buffer.buffer})
+    } catch {
+      throw "Failed to write magic char!"
+    }
+
+    return promise
+  },
 })
