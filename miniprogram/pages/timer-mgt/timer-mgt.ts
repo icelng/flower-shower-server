@@ -126,6 +126,7 @@ Page({
 
                 }
               }
+              app.listenCharValueChange(this.motorTimerChar.uuid, this.receiveTimerList)
               this.listTimers()
               this.adjSystemTime()
               this.refreshPageTimerNo = setInterval(this.refreshPage, 1000)
@@ -134,8 +135,6 @@ Page({
             console.log("failed to get charateristics!", err)
           }
         })
-
-        wx.onBLECharacteristicValueChange(this.onBLECharacteristicValueChange)
       },
       fail: (err) => {
         console.log("failed to get services from device, id: " + deviceId, err)
@@ -366,16 +365,6 @@ Page({
     })
   },
 
-  onBLECharacteristicValueChange(charateristic: WechatMiniprogram.OnBLECharacteristicValueChangeCallbackResult): void {
-    switch(charateristic.characteristicId) {
-      case CHAR_UUID_MOTOR_TIMER:
-        this.receiveTimerList(charateristic.value)
-        break;
-      case CHAR_UUID_SYSTEM_TIME:
-        break;
-    }
-  },
-
   checkBLEStatus() {
     if (this.device !== undefined && this.timerService !== undefined)
     wx.showModal({
@@ -389,8 +378,8 @@ Page({
     })
   },
 
-  receiveTimerList(value: ArrayBuffer): void {
-    const buf = Buffer.from(value)
+  receiveTimerList(charateristic: WechatMiniprogram.OnBLECharacteristicValueChangeCallbackResult): void {
+    const buf = Buffer.from(charateristic.value)
     this.rawTimers = decodeMotorTimers(buf)
     this.refreshPage()
     wx.hideToast()

@@ -7,8 +7,11 @@ interface BLEDevice {
 
 interface IAppOption {
   globalData: {
+    isBLEConnected?: boolean,
     connectedDevice?: BLEDevice
   }
-  userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback,
-  onConnectionClose: () => void
+  charValueChangeCallbacks?: Map<string, WechatMiniprogram.OnBLECharacteristicValueChangeCallback>
+
+  onConnectionClose: () => void,
+  listenCharValueChange: (charateristicId: string, cb: WechatMiniprogram.OnBLECharacteristicValueChangeCallback) => void
 }
