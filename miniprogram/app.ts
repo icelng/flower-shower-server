@@ -44,7 +44,12 @@ App<IAppOption>({
         if (res.confirm) {
           this.globalData.connectedDevice = undefined
           wx.offBLEConnectionStateChange(() => {})
-          wx.redirectTo({url: "../index/index"})
+          var pages = getCurrentPages()
+          var currentPage = pages[pages.length-1]
+          var url = currentPage.route
+          if (url !== "pages/index/index") {
+            wx.redirectTo({url: "../index/index"})
+          }
         }
       }
     })

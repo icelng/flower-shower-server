@@ -100,8 +100,9 @@ Page({
       throw e
     }
 
+    var password: string | undefined
     try {
-      var password = await this.loginBLE(device.deviceId)
+      password = await this.loginBLE(device.deviceId, device.password)
       console.log("Loging: ", password)
     } catch(e) {
       await wx.showModal({confirmText: "芝麻开门",
@@ -112,7 +113,7 @@ Page({
       throw e
     }
 
-    var connectedDevice:BLEDevice = {name: device.name, deviceId: device.deviceId}
+    var connectedDevice:BLEDevice = {name: device.name, deviceId: device.deviceId, password: password}
     app.globalData.connectedDevice = connectedDevice
     this.saveHistoryDevice(connectedDevice)
     wx.switchTab({url: "../timer-mgt/timer-mgt"})
@@ -232,7 +233,7 @@ Page({
     })
   },
 
-  async loginBLE(deviceId: string): Promise<string> {
+  async loginBLE(deviceId: string, defaultPassword?: string): Promise<string> {
     var magicChar: WechatMiniprogram.BLECharacteristic
     try {
       magicChar = await getCharateristic(deviceId, SERVICE_UUID_MAGIC, CHAR_UUID_MAGIC)
@@ -247,12 +248,17 @@ Page({
     }
 
 
-    var password = (await wx.showModal({
-      confirmText: "冲冲冲",
-      title: '口令？',
-      editable: true,
-      showCancel: false
-    })).content
+    var password: string
+    if (defaultPassword === undefined) {
+      password = (await wx.showModal({
+        confirmText: "冲冲冲",
+        title: '口令？',
+        editable: true,
+        showCancel: false
+      })).content
+    } else {
+      password = defaultPassword
+    }
 
     var promise = new Promise<string>((resolve, reject) => {
       app.listenCharValueChangeOnce(magicChar.uuid).then((result) => {

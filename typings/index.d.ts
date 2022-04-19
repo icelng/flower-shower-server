@@ -3,6 +3,7 @@
 interface BLEDevice {
   name: string
   deviceId: string
+  password?: string
 }
 
 interface IAppOption {
