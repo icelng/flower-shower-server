@@ -2,8 +2,9 @@ const app = getApp<IAppOption>()
 import { getCharateristic } from "../../utils/util"
 import { Buffer } from 'buffer';
 
-const SERVICE_UUID_MAGIC = "0000000A-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_MAGIC = "00000A01-0000-1000-8000-00805F9B34FB"
+const SERVICE_UUID_LOGIN = "0000000A-0000-1000-8000-00805F9B34FB"
+const CHAR_UUID_LOGIN = "00000A01-0000-1000-8000-00805F9B34FB"
+
 
 Page({
   data: {
@@ -61,18 +62,18 @@ Page({
     var device = this.devicesFound[event.currentTarget.dataset.itemIndex]
     this.stopScanning()
     this.checkBLEEnable((isEnabled) => {
-      if (isEnabled) this.connectDeivce(device)
+      if (isEnabled) this.connectDevice(device)
     })
   },
 
   btnConnectHistoryDevice(event : WechatMiniprogram.BaseEvent) {
     var device = this.data['historyDevices'][event.currentTarget.dataset.itemIndex]
     this.checkBLEEnable((isEnabled) => {
-      if (isEnabled) this.connectDeivce(device)
+      if (isEnabled) this.connectDevice(device)
     })
   },
   
-  async connectDeivce(device: BLEDevice) {
+  async connectDevice(device: BLEDevice) {
     if (!this.isBLEAvalabled) {
       return
     }
@@ -105,13 +106,17 @@ Page({
       password = await this.loginBLE(device.deviceId, device.password)
       console.log("Loging: ", password)
     } catch(e) {
-      await wx.showModal({confirmText: "芝麻开门",
-                          title: '(￣ー￣)口令好像错了，喊一下"芝麻开门"试试？',
-                          showCancel: false})
+      await wx.showModal({
+        title: '(￣ー￣)口令好像错了，喊一下"芝麻开门"试试？',
+        confirmText: "芝麻开门",
+        showCancel: false
+      })
       await wx.closeBLEConnection({deviceId: device.deviceId})
       app.globalData.connectedDevice = undefined
       throw e
     }
+
+    app.getDeviceConfig(device.deviceId, "device-name")
 
     var connectedDevice:BLEDevice = {name: device.name, deviceId: device.deviceId, password: password}
     app.globalData.connectedDevice = connectedDevice
@@ -234,19 +239,19 @@ Page({
   },
 
   async loginBLE(deviceId: string, defaultPassword?: string): Promise<string> {
-    var magicChar: WechatMiniprogram.BLECharacteristic
+    var loginChar: WechatMiniprogram.BLECharacteristic
     try {
-      magicChar = await getCharateristic(deviceId, SERVICE_UUID_MAGIC, CHAR_UUID_MAGIC)
+      loginChar = await getCharateristic(deviceId, SERVICE_UUID_LOGIN, CHAR_UUID_LOGIN)
     } catch(e) {
       throw e
     }
 
-    try {
-      await wx.notifyBLECharacteristicValueChange({deviceId: deviceId, serviceId: SERVICE_UUID_MAGIC, characteristicId: CHAR_UUID_MAGIC, state: true})
-    } catch(e) {
-      throw e
-    }
-
+    await wx.notifyBLECharacteristicValueChange({
+      deviceId: deviceId,
+      serviceId: SERVICE_UUID_LOGIN,
+      characteristicId: CHAR_UUID_LOGIN,
+      state: true
+    })
 
     var password: string
     if (defaultPassword === undefined) {
@@ -261,7 +266,7 @@ Page({
     }
 
     var promise = new Promise<string>((resolve, reject) => {
-      app.listenCharValueChangeOnce(magicChar.uuid).then((result) => {
+      app.listenCharValueChangeOnce(loginChar.uuid).then((result) => {
         var buffer = Buffer.from(result.value)
         var success = buffer.readUInt8(0)
         if (success === 1) {
@@ -276,14 +281,17 @@ Page({
 
     try {
       var buffer = Buffer.from(password, "utf-8")
-      await wx.writeBLECharacteristicValue({deviceId: deviceId,
-                                            serviceId: SERVICE_UUID_MAGIC,
-                                            characteristicId: CHAR_UUID_MAGIC,
-                                            value: buffer.buffer})
-    } catch {
-      throw "Failed to write magic char!"
+      await wx.writeBLECharacteristicValue({
+        deviceId: deviceId,
+        serviceId: SERVICE_UUID_LOGIN,
+        characteristicId: CHAR_UUID_LOGIN,
+        value: buffer.buffer
+      })
+    } catch(e) {
+      throw "Failed to write login char!" + e
     }
 
     return promise
-  },
+  }
+
 })

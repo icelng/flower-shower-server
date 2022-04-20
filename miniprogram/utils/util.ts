@@ -32,7 +32,7 @@ export async function getCharateristic(deviceId: string, servicdId: string, char
     var characteristics = (await wx.getBLEDeviceCharacteristics({deviceId: deviceId, serviceId: service.uuid})).characteristics
     for (let i = 0; i < characteristics.length; i++) {
       if (characteristics[i].uuid === charId) {
-        console.log("get magic char: ", characteristics[i])
+        console.log("get char: ", characteristics[i])
         charateristic = characteristics[i]
       }
     }
