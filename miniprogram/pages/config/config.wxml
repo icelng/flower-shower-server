@@ -1,7 +1,12 @@
 <!--pages/config/config.wxml-->
-<view style="height: 100%; display: flex; align-items: center; justify-content: center;">
-  <view style="padding: 8%;">
-    <view style="text-align: center;">正在努力开发中，敬请期待吧！</view>
-    <view style="text-align: center;" >(◕ᴗ◕✿)</view>
+<view style="height: 100%; display: flex; flex-direction: column;">
+  <view style="height: {{menuButtonPosition.bottom}}px; " ></view>
+  <view style="flex: 1; overflow: scroll;" >
+    <mp-cells>
+      <mp-cell hover="true" catchtap="btnRename" value="设备名" footer="{{deviceName}}"></mp-cell>
+      <mp-cell hover="true" catchtap="btnModPassword" value="修改口令"></mp-cell>
+      <mp-cell hover="true" catchtap="btnAdjustWatering" value="校准出水量" footer="{{adjustingTip}}"></mp-cell>
+    </mp-cells>
   </view>
+
 </view>

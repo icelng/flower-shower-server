@@ -21,4 +21,5 @@ interface IAppOption {
   listenCharValueChangeOnce: (charateristicId: string) => Promise<WechatMiniprogram.OnBLECharacteristicValueChangeCallbackResult>
   getDeviceConfig: (deviceId: string, configName: string) => Promise<string>
   setDeviceConfig: (deviceId: string, configName: string, configValue: string) => Promise<void>
+  saveHistoryDevice: (device: BLEDevice) => void
 }

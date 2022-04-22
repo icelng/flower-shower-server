@@ -140,6 +140,7 @@ App<IAppOption>({
     buffer.writeUInt8(CONFIG_OP_SET, 0)
     buffer.writeUInt16LE(configName.length, 1)
     buffer.write(configName, 3, configName.length, "utf-8")
+    buffer.writeUInt16LE(configValue.length, 3 + configName.length)
     buffer.write(configValue, 5 + configName.length, configValue.length, "utf-8")
     await wx.writeBLECharacteristicValue({
       deviceId: deviceId,
@@ -147,5 +148,9 @@ App<IAppOption>({
       characteristicId: CHAR_UUID_CONFIG_MANAGER,
       value: buffer.buffer
     })
-  }
+  },
+
+  saveHistoryDevice(device: BLEDevice) {
+    wx.setStorageSync("hd-" + device.deviceId, device)
+  },
 })

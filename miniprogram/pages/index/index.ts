@@ -116,18 +116,12 @@ Page({
       throw e
     }
 
-    app.getDeviceConfig(device.deviceId, "device-name")
-
     var connectedDevice:BLEDevice = {name: device.name, deviceId: device.deviceId, password: password}
     app.globalData.connectedDevice = connectedDevice
-    this.saveHistoryDevice(connectedDevice)
+    app.saveHistoryDevice(connectedDevice)
     wx.switchTab({url: "../timer-mgt/timer-mgt"})
 
     this.setData({isConnectDisabled: false})
-  },
-
-  saveHistoryDevice(device: BLEDevice) {
-    wx.setStorageSync("hd-" + device.deviceId, device)
   },
 
   getHistoryDevice(deviceId: string) {
@@ -174,7 +168,7 @@ Page({
   onLoad() {
 
     // wx.switchTab({
-    //   url: '../timer-mgt/timer-mgt',
+    //   url: '../config/config',
     //   success: () => {
 
     //   }
