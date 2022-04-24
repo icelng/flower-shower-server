@@ -9,6 +9,8 @@ const CHAR_UUID_WATER_ML_PER_SECOND = "00000D03-0000-1000-8000-00805F9B34FB"
 const WATER_OP_START = 0
 const WATER_OP_STOP = 1
 
+const ADVICE_ADJ_WATER_TIME_SEC = 60
+
 Page({
 
   data: {
@@ -18,6 +20,7 @@ Page({
   },
   deviceId: "" as string,
   isAdjusting: false as boolean,
+  startAdjWaterTimestmpMs: 0 as number,
 
   onLoad() {
     var deviceId = app.globalData.connectedDevice?.deviceId
@@ -54,44 +57,89 @@ Page({
     if (!this.isAdjusting) {
       var res = await wx.showModal({
         confirmText: "确定",
-        content: '点击"确定"开始出水，再次点击"校准出水量"时停止出水，然后输入出水量即可完成校准。',
+        content: '点击"确定"开始出水，再次点击"校准出水量"时停止出水，最后输入出水量即可完成校准。',
         editable: false,
         showCancel: true
       })
-
-      await this.startWater()
       
       if (res.confirm) {
+        await this.startWater()
+        this.startAdjWaterTimestmpMs = Date.now()
         this.isAdjusting = true
         this.setData({adjustingTip: "正在出水，点击停止"})
       }
     } else {
+      var contentInStopModal: string
+      var confirmTextInStopModal: string
+      if ((Date.now() - this.startAdjWaterTimestmpMs) / 1000 < ADVICE_ADJ_WATER_TIME_SEC) {
+        contentInStopModal = "是否停止出水?\n(还没超过 " + ADVICE_ADJ_WATER_TIME_SEC + " 秒，建议再等等)"
+        confirmTextInStopModal = "现在就停"
+      } else {
+        contentInStopModal = "是否停止出水?"
+        confirmTextInStopModal = "嗯嗯"
+      }
       var res = await wx.showModal({
-        confirmText: "是的是的",
-        content: '是否停止出水？',
+        confirmText: confirmTextInStopModal,
+        content: contentInStopModal,
         editable: false,
         showCancel: true
       })
       if (!res.confirm) { return }
 
       await this.stopWater()
-
-      res = await wx.showModal({
-        confirmText: "确定",
-        title: "一共出了多少毫升的水呢？",
-        editable: true,
-        showCancel: true
-      })
-      if (!res.confirm) { return }
-
       this.isAdjusting = false
       this.setData({adjustingTip: ""})
 
-      wx.showModal({
-        confirmText: "嗯嗯",
-        content: "校准成功！|●´∀`|σ",
-        editable: false,
-        showCancel: false 
+      var ml: number
+      var stopAdjWaterTimestampMs: number = Date.now()
+      while (true) {
+        res = await wx.showModal({
+          confirmText: "确定",
+          title: "一共出了多少毫升的水呢？",
+          editable: true,
+          showCancel: true
+        })
+        if (!res.confirm) { return }
+        if (res.content.length === 0) {
+          await wx.showModal({
+            content: "(｡・`ω´･)输入不能为空！",
+            confirmText: "知道了",
+            editable: false,
+            showCancel: false
+          })
+          continue;
+        }
+        ml = Number(res.content)
+        if (isNaN(ml)) {
+          await wx.showModal({
+            content: "￣ω￣=你好像输入了非数字内容哦~~~",
+            confirmText: "被发现了",
+            editable: false,
+            showCancel: false
+          })
+          continue;
+        }
+
+        break;
+      }
+
+      var elapse = (stopAdjWaterTimestampMs - this.startAdjWaterTimestmpMs) / 1000
+      var mlPerSec = ml / elapse
+
+      this.updateMLToDevice(mlPerSec).then(() => {
+        wx.showModal({
+          confirmText: "嗯嗯",
+          content: "|●´∀`|σ校准成功!\n每秒出水量是: " + mlPerSec.toFixed(3) + " ml",
+          editable: false,
+          showCancel: false
+        })
+      }).catch((err) => {
+        wx.showModal({
+          confirmText: "ook",
+          content: "(T＿T)校准失败，设备好像出了点问题!!错误信息: " + err,
+          editable: false,
+          showCancel: false
+        })
       })
     }
   },
@@ -99,23 +147,40 @@ Page({
   async startWater() {
     var buffer = Buffer.alloc(1)
     buffer.writeUInt8(WATER_OP_START, 0)
+    wx.showToast({ title: "开始中", icon: 'loading', mask: true, duration: 15000})
     await wx.writeBLECharacteristicValue({
       deviceId: this.deviceId,
       serviceId: SERVICE_UUID_WATER_ADJUSTER,
       characteristicId: CHAR_UUID_WATER_CONTROL,
       value: buffer.buffer
     })
+    wx.hideToast()
   },
 
   async stopWater() {
     var buffer = Buffer.alloc(1)
     buffer.writeUInt8(WATER_OP_STOP, 0)
+    wx.showToast({ title: "停止中", icon: 'loading', mask: true, duration: 15000})
     await wx.writeBLECharacteristicValue({
       deviceId: this.deviceId,
       serviceId: SERVICE_UUID_WATER_ADJUSTER,
       characteristicId: CHAR_UUID_WATER_CONTROL,
       value: buffer.buffer
     })
+    wx.hideToast()
+  },
+
+  async updateMLToDevice(ml: number): Promise<void> {
+    var buffer = Buffer.alloc(4)
+    buffer.writeFloatLE(ml, 0)
+    wx.showToast({ title: "校准中", icon: 'loading', mask: true, duration: 15000})
+    await wx.writeBLECharacteristicValue({
+      deviceId: this.deviceId,
+      serviceId: SERVICE_UUID_WATER_ADJUSTER,
+      characteristicId: CHAR_UUID_WATER_ML_PER_SECOND,
+      value: buffer.buffer
+    })
+    wx.hideToast()
   },
 
   async btnRename() {
