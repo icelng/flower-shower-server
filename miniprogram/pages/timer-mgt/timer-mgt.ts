@@ -2,42 +2,47 @@
 const app = getApp<IAppOption>()
 import { Buffer } from 'buffer';
 
-const SERVICE_UUID_MOTOR_TIMER = "000000FF-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_MOTOR_TIMER = "0000FF01-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_SYSTEM_TIME = "0000FF02-0000-1000-8000-00805F9B34FB"
+const SERVICE_UUID_WATER_TIMER = "000000FE-0000-1000-8000-00805F9B34FB"
+const CHAR_UUID_WATER_TIMER = "0000FE01-0000-1000-8000-00805F9B34FB"
+const CHAR_UUID_WATER_CONTROL = "0000FE02-0000-1000-8000-00805F9B34FB"
 
-const MOTOR_TIMER_OP_ADD: number = 1
-const MOTOR_TIMER_OP_MOD: number = 2
-const MOTOR_TIMER_OP_DEL: number = 3
-const MOTOR_TIMER_OP_START: number = 4
-const MOTOR_TIMER_OP_STOP: number = 5
+const WATER_TIMER_OP_CREATE = 0
+const WATER_TIMER_OP_UPDATE = 1
+const WATER_TIMER_OP_DELETE = 2
 
-const MSECS_PER_SEC: number = 1000
-const MSECS_PER_MINUTE: number = 60 * MSECS_PER_SEC
-const MSECS_PER_HOUR: number = 60 * MSECS_PER_MINUTE
-const MSECS_PER_DAY: number = 24 * MSECS_PER_HOUR
+const SERVICE_UUID_SYSTEM_TIME = "000000FF-0000-1000-8000-00805F9B34FB"
+const CHAR_UUID_SYSTEM_TIME = "0000FF01-0000-1000-8000-00805F9B34FB"
+
+const SECS_PER_MINUTE: number = 60
+const SECS_PER_HOUR: number = 60 * SECS_PER_MINUTE
+const SECS_PER_DAY: number = 24 * SECS_PER_HOUR
+const SECS_PER_WEEK: number = 7 * SECS_PER_DAY
+
+const WDAYS_ALL = 0x7F
 
 const DEFAULT_WATERING_STATUS: WateringStatus = {timerNo: 0, isWatering: false, minutesLeft: 0, secondsLeft: 0}
 
-interface MotorTimer {
+interface WaterTimer {
   timerNo: number,
-  firstStartTimestampMs: number,
-  periodMs: number,
-  durationMs: number,
-  speed: number
+  wdays: number,
+  firstStartTimestampSec: number,
+  volumeML: number
+  durationSec: number
 }
 
-interface FormattedMotorTimer {
+interface FormattedWaterTimer {
   timerNo: number,
-  firstStartTime: string,
-  duration: string,
+  wdays: Array<boolean>,
+  startTime: string,
+  volumeML: number,
+  duration: string
 }
 
 interface NextWaterTime {
-  daysLeft: number,
   hoursLeft: number,
   minutesLeft: number,
   secondsLeft: number,
+  volumeML: number,
   durationMinutes: number,
   durationSeconds: number
 }
@@ -59,23 +64,30 @@ Page({
     pickerAddDurationIndex: [] as Array<number>,
     isShowAddTimerContainer: false,
     pickAddStartTime: "13:00",
-    // timers: [] as Array<FormattedMotorTimer>
+    volumeMLForNewTimer: 30 as number,
+    // timers: [] as Array<FormattedWaterTimer>
     nextWaterTime: {} as NextWaterTime,
     wateringStatus: DEFAULT_WATERING_STATUS as WateringStatus,
-    timers: [{timerNo: 2, firstStartTime: "6 时 12 分", duration: "3 分 12 秒"}] as Array<FormattedMotorTimer>,
+    timers: [{timerNo: 2, startTime: "6 时 12 分", volumeML: 100, duration: "3 分 12 秒"}] as Array<FormattedWaterTimer>,
   },
 
-  device: {} as BLEDevice | undefined,
-  isDeviceConnected: false,
-  timerService: {} as WechatMiniprogram.BLEService,
-  motorTimerChar: {} as WechatMiniprogram.BLECharacteristic,
-  systemTimeChar: {} as WechatMiniprogram.BLECharacteristic,
-  rawTimers: [] as Array<MotorTimer>,
-  formattedTimers: [] as Array<FormattedMotorTimer>,
+  deviceId: "",
+  timers: [] as Array<WaterTimer>,
+  formattedTimers: [] as Array<FormattedWaterTimer>,
   refreshPageTimerNo: undefined as number | undefined,
-  stoppedTimers: new Map<number, number>() as Map<number, number>,  // timerNo -> restoreTimestamp
+  stoppedTimers: new Map<number, number>() as Map<number, number>,  // timerNo -> restoreTimestampSecs
 
-  onLoad() {
+  async onLoad() {
+    if (app.globalData.connectedDevice === undefined) {
+      await wx.showModal({
+        title: "(ó﹏ò｡)好像没有连到设备哟!",
+        confirmText: "嗯嗯",
+        showCancel: false
+      })
+      return
+    }
+    this.deviceId = app.globalData.connectedDevice.deviceId
+
     var minutes = []
     var secs = []
     for (let i = 0; i <= 60; i++) {
@@ -84,112 +96,32 @@ Page({
     }
     this.setData({pickerMinutesSecsArray: [minutes, secs]})
 
-    this.device = app.globalData.connectedDevice
-    if (this.device === undefined) {
-      wx.showToast({ icon: 'error', title: "好像没连到设备！", duration: 3000 })
-      return
-    }
-
-    const deviceId = this.device.deviceId
-    wx.getBLEDeviceServices({
-      deviceId: deviceId,
-      success: (res) => {
-        var isServiceFound = false
-        for (let i = 0; i < res.services.length; i++) {
-            if (res.services[i].uuid === SERVICE_UUID_MOTOR_TIMER) {
-              this.timerService = res.services[i]
-              isServiceFound = true;
-              console.log("get timer service: ", this.timerService)
-            }
-        }
-
-        if (!isServiceFound) {
-          wx.showToast({ icon: 'error', title: "设备连错了- -！", duration: 3000 })
-          return
-        }
-
-        wx.getBLEDeviceCharacteristics({
-          deviceId: deviceId,
-          serviceId: this.timerService.uuid,
-          success: (res) => {
-              for (let i = 0; i < res.characteristics.length; i++) {
-                console.log("get char: ", res.characteristics[i])
-                switch (res.characteristics[i].uuid) {
-                  case CHAR_UUID_MOTOR_TIMER:
-                    this.motorTimerChar = res.characteristics[i];
-                    console.log("get timer char: " + JSON.stringify(this.motorTimerChar));
-                    break;
-                  case CHAR_UUID_SYSTEM_TIME:
-                    this.systemTimeChar = res.characteristics[i];
-                    console.log("get system time char: " + JSON.stringify(this.systemTimeChar));
-                    break;
-
-                }
-              }
-              app.listenCharValueChange(this.motorTimerChar.uuid, this.receiveTimerList)
-              this.listTimers()
-              this.adjSystemTime()
-              this.refreshPageTimerNo = setInterval(this.refreshPage, 1000)
-          },
-          fail: (err) => {
-            console.log("failed to get charateristics!", err)
-          }
-        })
-      },
-      fail: (err) => {
-        console.log("failed to get services from device, id: " + deviceId, err)
-      }
-    })
+    wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
+    this.timers = await listWaterTimers(this.deviceId)
+    adjSystemTime(this.deviceId)
+    this.refreshPage()
+    this.refreshPageTimerNo = setInterval(this.refreshPage, 1000)
+    wx.hideToast()
   },
 
   refreshPage() {
-    if (this.rawTimers.length === 0) {
+    if (this.timers.length === 0) {
       this.setData({timers: [], wateringStatus: DEFAULT_WATERING_STATUS})
       return
     }
 
     this.stoppedTimers = refreshStoppedTimers(this.stoppedTimers)
-    this.rawTimers = sortMotorTimers(this.rawTimers, this.stoppedTimers)
-    this.formattedTimers = formatTimers(this.rawTimers)
-    var nextTimer = this.rawTimers[0]
+    this.timers = sortWaterTimers(this.timers, this.stoppedTimers)
+    this.formattedTimers = formatWaterTimers(this.timers)
+    var nextTimer = this.timers[0]
     this.setData({
       timers: this.formattedTimers,
-      nextWaterTime: calNextWaterTime(nextTimer),
+      nextWaterTime: calcNextWaterTime(nextTimer),
       wateringStatus: getWateringStatus(nextTimer, this.stoppedTimers.has(nextTimer.timerNo))
     })
   },
 
-  adjSystemTime() {
-    if (this.device === undefined || this.systemTimeChar === undefined) {
-      wx.showToast({ icon: 'error', title: "校准失败，请确认蓝牙已连接", duration: 1000 })
-      return
-    }
-
-    var timestampMs: number = Date.now()
-
-    var buffer = Buffer.alloc(8)
-    buffer.writeUIntLE(timestampMs/1000, 0, 6)
-
-    wx.showToast({ icon: 'loading', title: '操作中', mask: true, duration: 10000 })
-    wx.writeBLECharacteristicValue({
-      deviceId: this.device.deviceId,
-      serviceId: this.timerService.uuid,
-      characteristicId: this.systemTimeChar.uuid,
-      value: buffer.buffer,
-      fail: (err) => {
-        wx.showToast({ icon: 'error', title: "时间校准失败，请确认蓝牙已连接", duration: 1000 })
-        console.log(err);
-      },
-      success: () => {}
-    })
-  },
-
   btnStopTimer() {
-    if (this.device === undefined || this.timerService === undefined || this.motorTimerChar === undefined) {
-      wx.showToast({ icon: 'error', title: "请确认蓝牙已连接", duration: 1000 })
-      return;
-    }
-
     var wateringStatus = this.data.wateringStatus
     if (!wateringStatus.isWatering ||
         (wateringStatus.minutesLeft === 0 && wateringStatus.secondsLeft === 0)) {
@@ -197,85 +129,50 @@ Page({
     }
 
     var timerNo = wateringStatus.timerNo
-    var timer: MotorTimer | undefined = undefined
-    for (let t of this.rawTimers) {
+    var timer: WaterTimer
+    var found: boolean = false
+    for (let t of this.timers) {
       if (t.timerNo === timerNo) {
         timer = t
+        found = true
       }
     }
-
-    if (timer === undefined) {
-      return
-    }
-
-    var msToStop = calTimeToStop(timer)
-    if (msToStop === 0) { return }
-
-    var buffer = Buffer.alloc(2)
-    buffer.writeUInt8(MOTOR_TIMER_OP_STOP, 0)
-    buffer.writeUInt8(timerNo, 1)
-    wx.writeBLECharacteristicValue({
-      deviceId: this.device.deviceId,
-      serviceId: this.timerService.uuid,
-      characteristicId: this.motorTimerChar.uuid,
-      value: buffer.buffer,
-      fail: (err) => {
-        wx.showToast({ icon: 'error', title: "停止失败", duration: 1000 })
-        console.log('failed to delete tiemr: write char value error, ', err)
-      },
-      success: () => {
-        wx.showToast({icon: 'success', title: "停止成功", duration: 1000})
-        this.stoppedTimers.set(timerNo, Date.now() + msToStop)
-        this.refreshPage()
-      }
-    })
-  },
-
-  btnDeleteTimer(event: WechatMiniprogram.BaseEvent) {
-    var itemIndex = event.currentTarget.dataset.itemIndex
-    var timer = this.formattedTimers[itemIndex]
-    wx.showModal({
-      cancelText: "否",
-      confirmText: "是",
-      title: "是否删除定时器？",
-      content: "开始时间: " + timer.firstStartTime + "\n 持续时间: " + timer.duration,
-      showCancel: true,
-      success: (res) => {
-        if (res.confirm) {
-          this.doDeleteTimer(timer.timerNo)
-        }
-      }
-    })
-  },
-
-  // TODO(liang), reduce redundant codes about reading and writing charateristic
-  doDeleteTimer(timerNo: number) {
-    if (this.device === undefined || this.timerService === undefined || this.motorTimerChar === undefined) {
-      wx.showToast({ icon: 'error', title: "删除定时失败，请确认蓝牙已连接", duration: 1000 })
-      return;
-    }
-
-    var buffer = Buffer.alloc(2)
-    buffer.writeUInt8(MOTOR_TIMER_OP_DEL, 0)
-    buffer.writeUInt8(timerNo, 1)
+    if (!found) return
 
     wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
+    stopWater(this.deviceId).then(() => {
+      wx.showToast({ icon: 'error', title: "停止成功", duration: 1000 })
+      this.stoppedTimers.set(timerNo, Date.now() / 1000 + calcSecsToStop(timer))
+      this.refreshPage()
+    }).catch((e) => {
+      console.log("Failed to stop water, ", e)
+      wx.showToast({ icon: 'error', title: "停止失败", duration: 1000 })
+    })
+  },
 
-    wx.writeBLECharacteristicValue({
-      deviceId: this.device.deviceId,
-      serviceId: this.timerService.uuid,
-      characteristicId: this.motorTimerChar.uuid,
-      value: buffer.buffer,
-      fail: (err) => {
-        wx.showToast({ icon: 'error', title: "删除失败", duration: 1000 })
-        console.log('failed to delete tiemr: write char value error, ', err)
-      },
-      success: () => {
-        wx.showToast({icon: 'success', title: "删除成功", duration: 1000})
-        this.listTimers()
-      }
+  async btnDeleteTimer(event: WechatMiniprogram.BaseEvent) {
+    var itemIndex = event.currentTarget.dataset.itemIndex
+    var timer = this.formattedTimers[itemIndex]
+    var res = await wx.showModal({
+      title: "是否删除定时器？",
+      content: "开始时间: " + timer.startTime + "\n 浇水量: " + timer.volumeML + "ml",
+      confirmText: "是",
+      cancelText: "否",
+      showCancel: true,
     })
 
+    if (!res.confirm) { return }
+
+    wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
+    try {
+      await deleteWaterTimer(this.deviceId, timer.timerNo)
+      this.timers = await listWaterTimers(this.deviceId)
+      wx.showToast({ icon: 'error', title: "删除成功", duration: 1000 })
+      this.refreshPage()
+    } catch (e) {
+      console.log("Failed to delete timer, timer no: " + timer.timerNo, ", ", e)
+      wx.showToast({ icon: 'error', title: "删除失败", duration: 1000 })
+    }
   },
 
   btnAddTimer() {
@@ -290,48 +187,30 @@ Page({
     this.setData({isShowAddTimerContainer: false})
   },
 
-  btnDoAddTimer() {
-    if (this.device === undefined || this.timerService === undefined || this.motorTimerChar === undefined) {
-      wx.showToast({ icon: 'error', title: "增加定时失败，请确认蓝牙已连接", duration: 1000 })
-      return;
+  async btnDoAddTimer() {
+    var startTimestampSec = Date.parse("2022 1 1 " + this.data.pickAddStartTime + ":00") / 1000
+    var timer: WaterTimer = {
+      timerNo: 0,
+      wdays: WDAYS_ALL,
+      firstStartTimestampSec: startTimestampSec,
+      volumeML: this.data.volumeMLForNewTimer,
+      durationSec: 1
     }
 
-    var durationMinutes = this.data.pickerAddDurationIndex[0]
-    var durationSec = this.data.pickerAddDurationIndex[1]
-    var durationMs = Number((durationMinutes * 60 + durationSec) * 1000)
-    var startTimestamp = Date.parse("2022 1 1 " + this.data.pickAddStartTime + ":00")
-    var periodMs = MSECS_PER_DAY
-    console.log("do add timer, durationMs: " + durationMs + " startTimestamp: " + startTimestamp)
-    var timerBuffer = encodeMotorTimer([{
-      timerNo: 0,
-      firstStartTimestampMs: startTimestamp,
-      periodMs: periodMs,
-      durationMs: durationMs,
-      speed: 0.8
-    }])
-
-    var buffer = Buffer.alloc(1 + timerBuffer.length)
-    buffer.writeUInt8(MOTOR_TIMER_OP_ADD, 0)
-    timerBuffer.copy(buffer, 1, 0, timerBuffer.length)
-
     wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
-    wx.writeBLECharacteristicValue({
-      deviceId: this.device.deviceId,
-      serviceId: this.timerService.uuid,
-      characteristicId: this.motorTimerChar.uuid,
-      value: buffer.buffer,
-      fail: (err) => {
-        wx.showToast({ icon: 'error', title: "添加失败", duration: 1000 })
-        console.log('failed to add tiemr: write char value error, ', err)
-      },
-      success: () => {
-        wx.showToast({icon: 'success', title: "添加成功", duration: 1000})
-        this.setData({isShowAddTimerContainer: false})
-        this.listTimers()
-        saveDefaultAddStartTime(this.data.pickAddStartTime)
-        saveDefaultAddDuration(this.data.pickerAddDurationIndex)
-      }
-    })
+    try {
+      await createWaterTimer(this.deviceId, timer)
+      this.timers = await listWaterTimers(this.deviceId)
+      console.log("Add timer succeed, timers now: ", this.timers);
+      wx.showToast({icon: 'success', title: "添加成功", duration: 1000})
+      this.setData({isShowAddTimerContainer: false})
+      saveDefaultAddStartTime(this.data.pickAddStartTime)
+      saveDefaultAddDuration(this.data.pickerAddDurationIndex)
+      this.refreshPage()
+    } catch (e) {
+      wx.showToast({ icon: 'error', title: "添加失败", duration: 1000 })
+      console.log('failed to add tiemr: write char value error, ', e)
+    }
   },
 
   onPickAddStartTimeChange(e: WechatMiniprogram.CustomEvent) {
@@ -340,49 +219,6 @@ Page({
 
   onPickAddDurationChange(e: WechatMiniprogram.CustomEvent) {
     this.setData({pickerAddDurationIndex: e.detail.value})
-  },
-
-  listTimers() {
-    if (this.device === undefined) {
-      return;
-    }
-
-    wx.showToast({
-        title: "获取定时器列表",
-        icon: 'loading',
-        mask: true,
-        duration: 10000
-    })
-
-    wx.readBLECharacteristicValue({
-      deviceId: this.device.deviceId,
-      serviceId: this.timerService.uuid,
-      characteristicId: this.motorTimerChar.uuid,
-      fail: (err) => {
-        console.log("failed to read charateristic value!", err)
-        wx.hideToast()
-      }
-    })
-  },
-
-  checkBLEStatus() {
-    if (this.device !== undefined && this.timerService !== undefined)
-    wx.showModal({
-      confirmText: "嗯嗯",
-      title: "蓝牙已断开，请重新连接!(ó﹏ò｡)",
-      success: (res) => {
-        if (res.confirm) {
-          wx.navigateTo({url: "../index/index"})
-        }
-      }
-    })
-  },
-
-  receiveTimerList(charateristic: WechatMiniprogram.OnBLECharacteristicValueChangeCallbackResult): void {
-    const buf = Buffer.from(charateristic.value)
-    this.rawTimers = decodeMotorTimers(buf)
-    this.refreshPage()
-    wx.hideToast()
   },
 
   onUnload() {
@@ -398,7 +234,6 @@ Page({
       this.refreshPageTimerNo = undefined
     }
   },
-
   
   onShow() {
     if (this.refreshPageTimerNo === undefined) {
@@ -408,48 +243,11 @@ Page({
 
 })
 
-function decodeMotorTimers(buffer: Buffer): Array<MotorTimer> {
-  var num_timers = buffer.readUInt8(0)
-  var timers = []
-  var offset = 1
-  for (let i = 0; i < num_timers; i++) {
-    var timer: MotorTimer = {
-      timerNo: buffer.readUInt8(offset),
-      firstStartTimestampMs: Number(buffer.readBigUInt64LE(offset + 1)),
-      periodMs: Number(buffer.readBigUInt64LE(offset + 9)),
-      durationMs: Number(buffer.readBigUInt64LE(offset + 17)),
-      speed: Number(buffer.readFloatLE(offset + 25))
-    }
-    timers.push(timer)
-    offset += 29
-  }
-
-  return timers
-}
-
-function encodeMotorTimer(timers: Array<MotorTimer>): Buffer {
-  var buffer = Buffer.alloc(1 + timers.length * 29)
-
-  buffer.writeUInt8(timers.length, 0)
-  var offset = 1
-  for (let i = 0; i < timers.length; i++) {
-    var timer: MotorTimer = timers[i]
-    buffer.writeUInt8(timer.timerNo, offset)
-    buffer.writeUIntLE(timer.firstStartTimestampMs, offset + 1, 6)
-    buffer.writeUIntLE(timer.periodMs, offset + 9, 6)
-    buffer.writeUIntLE(timer.durationMs, offset + 17, 6)
-    buffer.writeFloatLE(timer.speed, offset + 25)
-    offset += 29
-  }
-
-  return buffer
-}
-
-function sortMotorTimers(timers: Array<MotorTimer>, stoppedTimers: Map<number, number>): Array<MotorTimer> {
+function sortWaterTimers(timers: Array<WaterTimer>, stoppedTimers: Map<number, number>): Array<WaterTimer> {
   var sortedTimers = timers.sort((a, b): number => {
     if ((stoppedTimers.has(a.timerNo) && stoppedTimers.has(b.timerNo)) ||
         (!stoppedTimers.has(a.timerNo) && !stoppedTimers.has(b.timerNo))) {
-      return calTimeToStart(a) - calTimeToStart(b)
+      return calcSecsToStart(a) - calcSecsToStart(b)
     } else if (stoppedTimers.has(a. timerNo)) {
       return 1
     } else {
@@ -459,82 +257,91 @@ function sortMotorTimers(timers: Array<MotorTimer>, stoppedTimers: Map<number, n
   return sortedTimers
 }
 
-function calNextWaterTime(timer: MotorTimer): NextWaterTime {
-  var nowTimestamp = Date.now()
-  var msToStart: number = 0
-
-  if (nowTimestamp <= timer.firstStartTimestampMs) {
-    msToStart = timer.firstStartTimestampMs - nowTimestamp
-  } else {
-    var goneMsInPeriod = (nowTimestamp - timer.firstStartTimestampMs) % timer.periodMs
-    msToStart = timer.periodMs - goneMsInPeriod
-  }
+function calcNextWaterTime(timer: WaterTimer): NextWaterTime {
+  var secsToStart: number = calcSecsToStart(timer)
 
   var nextWaterTime: NextWaterTime = {
-    daysLeft: Math.floor(msToStart / MSECS_PER_DAY),
-    hoursLeft: Math.floor((msToStart % MSECS_PER_DAY) / MSECS_PER_HOUR),
-    minutesLeft: Math.floor((msToStart % MSECS_PER_HOUR) / MSECS_PER_MINUTE),
-    secondsLeft: Math.floor((msToStart % MSECS_PER_MINUTE) / MSECS_PER_SEC),
-    durationMinutes: Math.floor((timer.durationMs % MSECS_PER_HOUR) / MSECS_PER_MINUTE),
-    durationSeconds: Math.floor((timer.durationMs % MSECS_PER_MINUTE) / MSECS_PER_SEC)
+    hoursLeft: Math.floor((secsToStart % SECS_PER_DAY) / SECS_PER_HOUR),
+    minutesLeft: Math.floor((secsToStart % SECS_PER_HOUR) / SECS_PER_MINUTE),
+    secondsLeft: Math.floor(secsToStart % SECS_PER_MINUTE),
+    volumeML: timer.volumeML,
+    durationMinutes: Math.floor((timer.durationSec % SECS_PER_HOUR) / SECS_PER_MINUTE),
+    durationSeconds: Math.floor(timer.durationSec % SECS_PER_MINUTE)
   }
 
   return nextWaterTime
 }
 
-function getWateringStatus(timer: MotorTimer, isStopped: boolean): WateringStatus {
-  var msToStop = calTimeToStop(timer)
+function getWateringStatus(timer: WaterTimer, isStopped: boolean): WateringStatus {
+  var secsToStop = calcSecsToStop(timer)
 
   var wateringStatus: WateringStatus = {
     timerNo: timer.timerNo,
-    isWatering: !isStopped && msToStop !== 0,
-    minutesLeft: Math.floor((msToStop % MSECS_PER_HOUR) / MSECS_PER_MINUTE),
-    secondsLeft: Math.floor((msToStop % MSECS_PER_MINUTE) / MSECS_PER_SEC)
+    isWatering: !isStopped && secsToStop !== 0,
+    minutesLeft: Math.floor((secsToStop % SECS_PER_HOUR) / SECS_PER_MINUTE),
+    secondsLeft: Math.floor(secsToStop % SECS_PER_MINUTE)
   }
 
   return wateringStatus
 }
 
-function formatTimers(rawTimers: Array<MotorTimer>): Array<FormattedMotorTimer> {
-    var formattedTimers: Array<FormattedMotorTimer> = []
-    for (let i = 0; i < rawTimers.length; i++) {
-      let timer = rawTimers[i]
-      var formattedTimer: FormattedMotorTimer = {
-        timerNo: timer.timerNo,
-        firstStartTime: formatTimestamp(timer.firstStartTimestampMs),
-        duration: formatDuration(timer.durationMs),
-      }
-      formattedTimers.push(formattedTimer)
-    }
+function nextWday(wdays: number, wdayNow: number): number {
+  if (wdays === 0) return 0xFF
 
-    return formattedTimers
-}
-
-function calTimeToStart(timer: MotorTimer): number {
-  var nowTimestamp = Date.now()
-  var msToStart: number = 0
-
-  if (nowTimestamp <= timer.firstStartTimestampMs) {
-    msToStart = timer.firstStartTimestampMs - nowTimestamp
-  } else {
-    var goneMsInPeriod = (nowTimestamp - timer.firstStartTimestampMs) % timer.periodMs
-    if (goneMsInPeriod < timer.durationMs) {
-      msToStart = 0  // is watering
-    } else {
-      msToStart = timer.periodMs - goneMsInPeriod
-    }
+  var n = wdayNow
+  for (; n < 7; n++) {
+    if (((wdays >> n) & 1) === 1) return n
   }
 
-  return msToStart
+  n = 0
+  for (; n < wdayNow; n++) {
+    if (((wdays >> n) & 1) === 1) return n
+  }
+
+  return n
 }
 
-function calTimeToStop(timer: MotorTimer): number {
-  var nowTimestamp = Date.now()
-  if (nowTimestamp < timer.firstStartTimestampMs) {
+function calcSecsToStart(timer: WaterTimer): number {
+  var nowTimestampSec = Date.now() / 1000
+
+  // wdays === 0 means the timer is oneshot
+  if (timer.wdays === 0) {
+    if (nowTimestampSec > timer.firstStartTimestampSec) { return Number.MAX_VALUE }
+    return timer.firstStartTimestampSec - nowTimestampSec
+  }
+
+  var nowWday = (new Date()).getDay()
+  var startSecsInDay = timer.firstStartTimestampSec % SECS_PER_DAY
+  var nowSecsInDay = nowTimestampSec % SECS_PER_DAY
+  var startWday: number
+  if (nowSecsInDay >= startSecsInDay) {
+    startWday = nextWday(timer.wdays, (nowWday + 1) % 7)
+  } else {
+    startWday = nextWday(timer.wdays, nowWday)
+  }
+  var secsToStart = (startWday * SECS_PER_DAY + startSecsInDay) - (nowWday * SECS_PER_DAY + nowSecsInDay)
+  if (secsToStart < 0) { secsToStart += SECS_PER_WEEK }
+
+  return secsToStart
+}
+
+function calcSecsToStop(timer: WaterTimer): number {
+  var nowTimestampSec = Date.now() / 1000
+  if (nowTimestampSec < timer.firstStartTimestampSec) {
     return 0
   }
-  var goneMsInPeriod = (nowTimestamp - timer.firstStartTimestampMs) % timer.periodMs
-  return (goneMsInPeriod < timer.durationMs)? (timer.durationMs - goneMsInPeriod) : 0
+
+  var secsGone = (nowTimestampSec % SECS_PER_DAY) - (timer.firstStartTimestampSec % SECS_PER_DAY)
+  secsGone += (secsGone < 0? SECS_PER_DAY : 0)
+  var startTimestampSec = nowTimestampSec - secsGone
+  var wday = (new Date(startTimestampSec * 1000)).getDay()
+
+  if (secsGone < timer.durationSec &&
+      (timer.wdays === 0 || ((timer.wdays >> wday) & 1) === 1)) {
+    return timer.durationSec - secsGone
+  }
+
+  return 0
 }
 
 function refreshStoppedTimers(stoppedTimers: Map<number, number>): Map<number, number> {
@@ -548,18 +355,6 @@ function refreshStoppedTimers(stoppedTimers: Map<number, number>): Map<number, n
     }
   })
   return newStoppedTimers
-}
-
-function formatTimestamp(timestamp: number): string {
-  var date = new Date(timestamp)
-  var hours = date.getHours();
-  var minutes = date.getMinutes();
-  return hours + " 时 " + minutes + " 分 "
-}
-
-function formatDuration(durationMs: number): string {
-  var durationSec: number = durationMs / 1000
-  return (durationSec >= 60? Math.floor(durationSec / 60) + " 分 " : "") + durationSec % 60 + " 秒"
 }
 
 function saveDefaultAddStartTime(time: string): void {
@@ -588,4 +383,158 @@ function loadDefaultAddDuration(): Array<number> {
   } catch(e) {
     return [1, 1]
   }
+}
+
+function formatTimestamp(timestampSec: number): string {
+  var date = new Date(timestampSec * 1000)
+  var hours = date.getHours();
+  var minutes = date.getMinutes();
+  return hours + " 时 " + minutes + " 分 "
+}
+
+function formatDuration(durationSec: number): string {
+  return (durationSec >= 60? Math.floor(durationSec / 60) + " 分 " : "") + durationSec % 60 + " 秒"
+}
+
+function formatWdays(wdaysRaw: number): Array<boolean> {
+  var wdays: Array<boolean> = []
+  for (let i = 0; i < 7; i++) {
+    if (((wdaysRaw >> i) & 1) !== 0) {
+      wdays.push(true)
+    } else {
+      wdays.push(false)
+    }
+  }
+
+  return wdays
+}
+
+function formatWaterTimer(timer: WaterTimer): FormattedWaterTimer {
+  var formattedTimer: FormattedWaterTimer = {
+    timerNo: timer.timerNo,
+    wdays: formatWdays(timer.wdays),
+    startTime: formatTimestamp(timer.firstStartTimestampSec),
+    volumeML: timer.volumeML,
+    duration: formatDuration(timer.durationSec)
+  }
+
+  return formattedTimer
+}
+
+function formatWaterTimers(timers: Array<WaterTimer>): Array<FormattedWaterTimer> {
+  var formattedTimers: Array<FormattedWaterTimer> = []
+  timers.forEach((timer) => {
+    formattedTimers.push(formatWaterTimer(timer))
+  })
+  return formattedTimers
+}
+
+async function listWaterTimers(deviceId: string): Promise<Array<WaterTimer>> {
+  var promise = new Promise<Array<WaterTimer>>((resolve, reject) => {
+    app.listenCharValueChangeOnce(CHAR_UUID_WATER_TIMER).then((res) => {
+      /*|-num_timers(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|-duration(4)-|*/
+      var timers: Array<WaterTimer> = []
+      var buffer = Buffer.from(res.value)
+      var numTimers = buffer.readUInt8(0)
+
+      var offset = 1
+      for (var i = 0; i < numTimers; i++) {
+        var timer: WaterTimer = {
+          timerNo: buffer.readUInt8(offset),
+          wdays: buffer.readUInt8(offset + 1),
+          firstStartTimestampSec: Number(buffer.readBigUInt64LE(offset + 2)),
+          volumeML: buffer.readUInt32LE(offset + 10),
+          durationSec: buffer.readUInt32LE(offset + 14)
+        }
+        offset += 18
+        timers.push(timer)
+      }
+
+      resolve(timers)
+    }).catch((e) => {
+      console.log("Failed to list water timers!", e)
+      reject(e)
+    })
+
+  })
+
+  wx.readBLECharacteristicValue({
+    deviceId: deviceId,
+    serviceId: SERVICE_UUID_WATER_TIMER,
+    characteristicId: CHAR_UUID_WATER_TIMER
+  })
+  
+  return promise
+}
+
+async function createWaterTimer(deivceId: string, timer: WaterTimer): Promise<void> {
+  /*|-op(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|*/
+  var buffer = Buffer.alloc(15)
+  buffer.writeUInt8(WATER_TIMER_OP_CREATE, 0)
+  buffer.writeUInt8(0, 1)
+  buffer.writeUInt8(timer.wdays, 2)
+  buffer.writeUIntLE(timer.firstStartTimestampSec, 3, 6)
+  buffer.writeUInt32LE(timer.volumeML, 11)
+
+  await wx.writeBLECharacteristicValue({
+    deviceId: deivceId,
+    serviceId: SERVICE_UUID_WATER_TIMER,
+    characteristicId: CHAR_UUID_WATER_TIMER,
+    value: buffer.buffer
+  })
+}
+
+async function updateWaterTimer(deivceId: string, timer: WaterTimer): Promise<void> {
+  /*|-op(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|*/
+  var buffer = Buffer.alloc(15)
+  buffer.writeUInt8(WATER_TIMER_OP_UPDATE, 0)
+  buffer.writeUInt8(timer.timerNo, 1)
+  buffer.writeUInt8(timer.wdays, 2)
+  buffer.writeUIntLE(timer.firstStartTimestampSec, 3, 6)
+  buffer.writeUInt32LE(timer.volumeML, 11)
+
+  await wx.writeBLECharacteristicValue({
+    deviceId: deivceId,
+    serviceId: SERVICE_UUID_WATER_TIMER,
+    characteristicId: CHAR_UUID_WATER_TIMER,
+    value: buffer.buffer
+  })
+}
+ 
+async function deleteWaterTimer(deivceId: string, timerNo: number): Promise<void> {
+  var buffer = Buffer.alloc(2)
+  buffer.writeUInt8(WATER_TIMER_OP_DELETE, 0)
+  buffer.writeUInt8(timerNo, 1)
+
+  await wx.writeBLECharacteristicValue({
+    deviceId: deivceId,
+    serviceId: SERVICE_UUID_WATER_TIMER,
+    characteristicId: CHAR_UUID_WATER_TIMER,
+    value: buffer.buffer
+  })
+}
+
+async function adjSystemTime(deviceId: string): Promise<void> {
+  var timestampMs: number = Date.now()
+  var buffer = Buffer.alloc(8)
+  buffer.writeUIntLE(timestampMs/1000, 0, 6)
+
+  wx.writeBLECharacteristicValue({
+    deviceId: deviceId,
+    serviceId: SERVICE_UUID_SYSTEM_TIME,
+    characteristicId: CHAR_UUID_SYSTEM_TIME,
+    value: buffer.buffer,
+  })
+}
+
+async function stopWater(deviceId: string): Promise<void> {
+  var buffer = Buffer.alloc(1)
+  buffer.writeUInt8(1, 0)
+
+  wx.writeBLECharacteristicValue({
+    deviceId: deviceId,
+    serviceId: SERVICE_UUID_WATER_TIMER,
+    characteristicId: CHAR_UUID_WATER_CONTROL,
+    value: buffer.buffer,
+  })
 }

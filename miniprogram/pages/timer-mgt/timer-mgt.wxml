@@ -12,10 +12,12 @@
     <view wx:else class="timer-status">
       <view>
         <text>下一次浇水在 </text>
-        <text wx:if="{{nextWaterTime.daysLeft !== 0}}">{{nextWaterTime.daysLeft}} 天</text>
-        <text wx:elif="{{nextWaterTime.hoursLeft !== 0}}">{{nextWaterTime.hoursLeft}} 时 {{nextWaterTime.minutesLeft}} 分</text>
+        <text wx:if="{{nextWaterTime.hoursLeft !== 0}}">{{nextWaterTime.hoursLeft}} 时 {{nextWaterTime.minutesLeft}} 分</text>
         <text wx:else><text wx:if="{{nextWaterTime.minutesLeft !== 0}}">{{nextWaterTime.minutesLeft}} 分 </text>{{nextWaterTime.secondsLeft}} 秒</text>
         <text>后开始</text>
+      </view>
+      <view>
+        <text>浇水量 {{nextWaterTime.volumeML}} ml</text>
       </view>
       <view>
         <text wx:if="{{nextWaterTime.durationMinutes != 0}}">持续时间 {{nextWaterTime.durationMinutes}} 分 {{nextWaterTime.durationSeconds}} 秒</text>
@@ -45,7 +47,7 @@
         <view class="timer-item">
             <mp-slideview buttons="{{slideButtons}}" data-item-index="{{index}}" bindbuttontap="btnDeleteTimer">
               <mp-cell hover='true' catchtap="btnEditTimer" data-item-index="{{index}}">
-                <rich-text nodes="<h3>开始时间: {{item.firstStartTime}}</h3><p>持续时间: {{item.duration}}</p>"/>
+                <rich-text nodes="<h3>开始时间: {{item.startTime}}</h3><p>浇水量: {{item.volumeML}} ml 持续时间: {{item.duration}}</p>"/>
               </mp-cell>
             </mp-slideview>
         </view>
@@ -73,24 +75,23 @@
   overlay-style="{{overlayStyle}}"
 >
 <view class="add-timer-page">
-  <view style="position: absolute; top: 10%; display: flex; flex-direction: row; justify-content: center; width: 100%;">
-    <view style="display: flex; flex-direction: column; width: 80%;">
+  <view style="position: absolute; top: 10%; display: flex; flex-direction: column; align-items: center; width: 100%;">
+    <view style="width: 80%">
+      <view class="label">开始时间: </view>
       <picker mode="time" value="{{pickAddStartTime}}" start="00:00" end="23:59" bindchange="onPickAddStartTimeChange">
-        <view class="label">开始时间: </view>
-        <view class="weui-cells" style="width: 200 rpx;">
+        <view class="weui-cells">
           <view class="weui-cell weui-cell_input">
             <input class="weui-input" value="{{pickAddStartTime}}" disabled/>
           </view>
         </view>
       </picker>
-      <picker mode="multiSelector" value="{{pickAddDuration}}"  bindchange="onPickAddDurationChange" index="{{pickerAddDurationIndex}}" range="{{pickerMinutesSecsArray}}">
-        <view class="label">持续时间: </view>
-        <view class="weui-cells" style="width: 200 rpx;">
-          <view class="weui-cell weui-cell_input">
-            <input class="weui-input" value="{{pickerMinutesSecsArray[0][pickerAddDurationIndex[0]]}}{{pickerMinutesSecsArray[1][pickerAddDurationIndex[1]]}}" disabled/>
-          </view>
-        </view>
-      </picker>
+    </view>
+
+    <view class="weui-cells" style="width: 80%" >
+      <view class="label">浇水量(ml): </view>
+      <view class="weui-cell weui-cell_input">
+        <input class="weui-input" value="{{volumeMLForNewTimer}}" />
+      </view>
     </view>
   </view>
   <view style="position: absolute; bottom: 8%; width: 100%; display: flex; flex-direction: row; justify-content: center; align-items: center;">

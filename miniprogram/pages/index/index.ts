@@ -168,6 +168,13 @@ Page({
   onLoad() {
 
     // wx.switchTab({
+    //   url: '../timer-mgt/timer-mgt',
+    //   success: () => {
+
+    //   }
+    // })
+
+    // wx.switchTab({
     //   url: '../config/config',
     //   success: () => {
 
