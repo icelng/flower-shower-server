@@ -48,10 +48,10 @@ Page({
     isShowAddTimerContainer: false,
     pickAddStartTime: "13:00",
     volumeMLForNewTimer: 30 as number,
-    // timers: [] as Array<FormattedWaterTimer>
     nextWaterTime: {} as NextWaterTime,
     wateringStatus: DEFAULT_WATERING_STATUS as WateringStatus,
-    timers: [{timerNo: 2, startTime: "6 时 12 分", volumeML: 100, duration: "3 分 12 秒"}] as Array<FormattedWaterTimer>,
+    timers: [] as Array<FormattedWaterTimer>
+    // timers: [{timerNo: 2, startTime: "6 时 12 分", volumeML: 100, duration: "3 分 12 秒"}] as Array<FormattedWaterTimer>,
   },
 
   deviceId: "",
@@ -79,11 +79,7 @@ Page({
     }
     this.setData({pickerMinutesSecsArray: [minutes, secs]})
 
-    wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
-    this.timers = await listWaterTimers(this.deviceId)
     adjSystemTime(this.deviceId)
-    this.refreshPage()
-    wx.hideToast()
   },
 
   refreshPage() {
@@ -225,8 +221,12 @@ Page({
     if (this.refreshPageTimerNo === undefined) {
       this.refreshPageTimerNo = setInterval(this.refreshPage, 1000)
     }
+    // silent list
+    listWaterTimers(this.deviceId).then((timers) => {
+      this.timers = timers
+      this.refreshPage()
+    })
   }
-
 })
 
 function sortWaterTimers(timers: Array<WaterTimer>, stoppedTimers: Map<number, number>): Array<WaterTimer> {
