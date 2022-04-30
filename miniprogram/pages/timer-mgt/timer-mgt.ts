@@ -100,7 +100,6 @@ Page({
     this.timers = await listWaterTimers(this.deviceId)
     adjSystemTime(this.deviceId)
     this.refreshPage()
-    this.refreshPageTimerNo = setInterval(this.refreshPage, 1000)
     wx.hideToast()
   },
 
@@ -110,14 +109,16 @@ Page({
       return
     }
 
+    console.log("[YL DEBUG] time")
+
     this.stoppedTimers = refreshStoppedTimers(this.stoppedTimers)
     this.timers = sortWaterTimers(this.timers, this.stoppedTimers)
     this.formattedTimers = formatWaterTimers(this.timers)
     var nextTimer = this.timers[0]
     this.setData({
-      timers: this.formattedTimers,
       nextWaterTime: calcNextWaterTime(nextTimer),
-      wateringStatus: getWateringStatus(nextTimer, this.stoppedTimers.has(nextTimer.timerNo))
+      wateringStatus: getWateringStatus(nextTimer, this.stoppedTimers.has(nextTimer.timerNo)),
+      timers: this.formattedTimers
     })
   },
 
@@ -248,16 +249,22 @@ Page({
 })
 
 function sortWaterTimers(timers: Array<WaterTimer>, stoppedTimers: Map<number, number>): Array<WaterTimer> {
-  var sortedTimers = timers.sort((a, b): number => {
-    if ((stoppedTimers.has(a.timerNo) && stoppedTimers.has(b.timerNo)) ||
-        (!stoppedTimers.has(a.timerNo) && !stoppedTimers.has(b.timerNo))) {
-      return calcSecsToStart(a) - calcSecsToStart(b)
-    } else if (stoppedTimers.has(a. timerNo)) {
-      return 1
+  var calcWeight = (timer: WaterTimer): number => {
+    var weight: number = 0
+    if (stoppedTimers.has(timer.timerNo)) {
+      weight = Number.MAX_VALUE
+    } else if (isWatering(timer)) {
+      weight = 0
     } else {
-      return -1
+      weight = calcSecsToStart(timer)
     }
+    return weight
+  }
+
+  var sortedTimers = timers.sort((a, b): number => {
+    return calcWeight(a) - calcWeight(b)
   })
+
   return sortedTimers
 }
 
@@ -348,8 +355,12 @@ function calcSecsToStop(timer: WaterTimer): number {
   return 0
 }
 
+function isWatering(timer: WaterTimer): boolean {
+  return calcSecsToStop(timer) > 0
+}
+
 function refreshStoppedTimers(stoppedTimers: Map<number, number>): Map<number, number> {
-  var nowTimestamp = Date.now()
+  var nowTimestamp = Date.now() / 1000
   var newStoppedTimers = new Map<number, number>()
   stoppedTimers.forEach((restoreTimestamp, timerNo) => {
     // If now timestamp is lower than restore timestamp,
