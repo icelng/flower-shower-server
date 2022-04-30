@@ -187,6 +187,10 @@ Page({
     this.setData({isShowAddTimerContainer: false})
   },
 
+  bindInputVolumeForNewTimer(e: WechatMiniprogram.CustomEvent) {
+    this.setData({ volumeMLForNewTimer: e.detail.value })
+  },
+
   async btnDoAddTimer() {
     var startTimestampSec = Date.parse("2022 1 1 " + this.data.pickAddStartTime + ":00") / 1000
     var timer: WaterTimer = {

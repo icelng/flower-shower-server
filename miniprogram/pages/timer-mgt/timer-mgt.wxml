@@ -90,7 +90,7 @@
     <view class="weui-cells" style="width: 80%" >
       <view class="label">浇水量(ml): </view>
       <view class="weui-cell weui-cell_input">
-        <input class="weui-input" value="{{volumeMLForNewTimer}}" />
+        <input class="weui-input" value="{{volumeMLForNewTimer}}" bindinput="bindInputVolumeForNewTimer" />
       </view>
     </view>
   </view>
