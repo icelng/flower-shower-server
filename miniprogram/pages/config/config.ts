@@ -1,13 +1,6 @@
 const app = getApp<IAppOption>()
 import { Buffer } from 'buffer';
-
-const SERVICE_UUID_WATER_ADJUSTER = "0000000D-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_WATER_CONTROL = "00000D01-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_WATER_SPEED = "00000D02-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_WATER_ML_PER_SECOND = "00000D03-0000-1000-8000-00805F9B34FB"
-
-const WATER_OP_START = 0
-const WATER_OP_STOP = 1
+import { Constants } from '../../app';
 
 const ADVICE_ADJ_WATER_TIME_SEC = 60
 
@@ -146,12 +139,12 @@ Page({
 
   async startWater() {
     var buffer = Buffer.alloc(1)
-    buffer.writeUInt8(WATER_OP_START, 0)
+    buffer.writeUInt8(Constants.WATER_CONTROL_OP_START, 0)
     wx.showToast({ title: "开始中", icon: 'loading', mask: true, duration: 15000})
     await wx.writeBLECharacteristicValue({
       deviceId: this.deviceId,
-      serviceId: SERVICE_UUID_WATER_ADJUSTER,
-      characteristicId: CHAR_UUID_WATER_CONTROL,
+      serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+      characteristicId: Constants.CHAR_UUID_WATER_CONTROL,
       value: buffer.buffer
     })
     wx.hideToast()
@@ -159,12 +152,12 @@ Page({
 
   async stopWater() {
     var buffer = Buffer.alloc(1)
-    buffer.writeUInt8(WATER_OP_STOP, 0)
+    buffer.writeUInt8(Constants.WATER_CONTROL_OP_STOP, 0)
     wx.showToast({ title: "停止中", icon: 'loading', mask: true, duration: 15000})
     await wx.writeBLECharacteristicValue({
       deviceId: this.deviceId,
-      serviceId: SERVICE_UUID_WATER_ADJUSTER,
-      characteristicId: CHAR_UUID_WATER_CONTROL,
+      serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+      characteristicId: Constants.CHAR_UUID_WATER_CONTROL,
       value: buffer.buffer
     })
     wx.hideToast()
@@ -176,8 +169,8 @@ Page({
     wx.showToast({ title: "校准中", icon: 'loading', mask: true, duration: 15000})
     await wx.writeBLECharacteristicValue({
       deviceId: this.deviceId,
-      serviceId: SERVICE_UUID_WATER_ADJUSTER,
-      characteristicId: CHAR_UUID_WATER_ML_PER_SECOND,
+      serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+      characteristicId: Constants.CHAR_UUID_WATER_MLPERSEC,
       value: buffer.buffer
     })
     wx.hideToast()

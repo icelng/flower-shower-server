@@ -1,24 +1,7 @@
 // pages/timer-mgt/timer-mgt.ts
 const app = getApp<IAppOption>()
 import { Buffer } from 'buffer';
-
-const SERVICE_UUID_WATER_TIMER = "000000FE-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_WATER_TIMER = "0000FE01-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_WATER_CONTROL = "0000FE02-0000-1000-8000-00805F9B34FB"
-
-const WATER_TIMER_OP_CREATE = 0
-const WATER_TIMER_OP_UPDATE = 1
-const WATER_TIMER_OP_DELETE = 2
-
-const SERVICE_UUID_SYSTEM_TIME = "000000FF-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_SYSTEM_TIME = "0000FF01-0000-1000-8000-00805F9B34FB"
-
-const SECS_PER_MINUTE: number = 60
-const SECS_PER_HOUR: number = 60 * SECS_PER_MINUTE
-const SECS_PER_DAY: number = 24 * SECS_PER_HOUR
-const SECS_PER_WEEK: number = 7 * SECS_PER_DAY
-
-const WDAYS_ALL = 0x7F
+import { Constants } from '../../app';
 
 const DEFAULT_WATERING_STATUS: WateringStatus = {timerNo: 0, isWatering: false, minutesLeft: 0, secondsLeft: 0}
 
@@ -109,8 +92,6 @@ Page({
       return
     }
 
-    console.log("[YL DEBUG] time")
-
     this.stoppedTimers = refreshStoppedTimers(this.stoppedTimers)
     this.timers = sortWaterTimers(this.timers, this.stoppedTimers)
     this.formattedTimers = formatWaterTimers(this.timers)
@@ -196,7 +177,7 @@ Page({
     var startTimestampSec = Date.parse("2022 1 1 " + this.data.pickAddStartTime + ":00") / 1000
     var timer: WaterTimer = {
       timerNo: 0,
-      wdays: WDAYS_ALL,
+      wdays: Constants.WDAYS_ALL,
       firstStartTimestampSec: startTimestampSec,
       volumeML: this.data.volumeMLForNewTimer,
       durationSec: 1
@@ -272,12 +253,12 @@ function calcNextWaterTime(timer: WaterTimer): NextWaterTime {
   var secsToStart: number = calcSecsToStart(timer)
 
   var nextWaterTime: NextWaterTime = {
-    hoursLeft: Math.floor((secsToStart % SECS_PER_DAY) / SECS_PER_HOUR),
-    minutesLeft: Math.floor((secsToStart % SECS_PER_HOUR) / SECS_PER_MINUTE),
-    secondsLeft: Math.floor(secsToStart % SECS_PER_MINUTE),
+    hoursLeft: Math.floor((secsToStart % Constants.SECS_PER_DAY) / Constants.SECS_PER_HOUR),
+    minutesLeft: Math.floor((secsToStart % Constants.SECS_PER_HOUR) / Constants.SECS_PER_MINUTE),
+    secondsLeft: Math.floor(secsToStart % Constants.SECS_PER_MINUTE),
     volumeML: timer.volumeML,
-    durationMinutes: Math.floor((timer.durationSec % SECS_PER_HOUR) / SECS_PER_MINUTE),
-    durationSeconds: Math.floor(timer.durationSec % SECS_PER_MINUTE)
+    durationMinutes: Math.floor((timer.durationSec % Constants.SECS_PER_HOUR) / Constants.SECS_PER_MINUTE),
+    durationSeconds: Math.floor(timer.durationSec % Constants.SECS_PER_MINUTE)
   }
 
   return nextWaterTime
@@ -289,8 +270,8 @@ function getWateringStatus(timer: WaterTimer, isStopped: boolean): WateringStatu
   var wateringStatus: WateringStatus = {
     timerNo: timer.timerNo,
     isWatering: !isStopped && secsToStop !== 0,
-    minutesLeft: Math.floor((secsToStop % SECS_PER_HOUR) / SECS_PER_MINUTE),
-    secondsLeft: Math.floor(secsToStop % SECS_PER_MINUTE)
+    minutesLeft: Math.floor((secsToStop % Constants.SECS_PER_HOUR) / Constants.SECS_PER_MINUTE),
+    secondsLeft: Math.floor(secsToStop % Constants.SECS_PER_MINUTE)
   }
 
   return wateringStatus
@@ -322,16 +303,16 @@ function calcSecsToStart(timer: WaterTimer): number {
   }
 
   var nowWday = (new Date()).getDay()
-  var startSecsInDay = timer.firstStartTimestampSec % SECS_PER_DAY
-  var nowSecsInDay = nowTimestampSec % SECS_PER_DAY
+  var startSecsInDay = timer.firstStartTimestampSec % Constants.SECS_PER_DAY
+  var nowSecsInDay = nowTimestampSec % Constants.SECS_PER_DAY
   var startWday: number
   if (nowSecsInDay >= startSecsInDay) {
     startWday = nextWday(timer.wdays, (nowWday + 1) % 7)
   } else {
     startWday = nextWday(timer.wdays, nowWday)
   }
-  var secsToStart = (startWday * SECS_PER_DAY + startSecsInDay) - (nowWday * SECS_PER_DAY + nowSecsInDay)
-  if (secsToStart < 0) { secsToStart += SECS_PER_WEEK }
+  var secsToStart = (startWday * Constants.SECS_PER_DAY + startSecsInDay) - (nowWday * Constants.SECS_PER_DAY + nowSecsInDay)
+  if (secsToStart < 0) { secsToStart += Constants.SECS_PER_WEEK }
 
   return secsToStart
 }
@@ -342,8 +323,8 @@ function calcSecsToStop(timer: WaterTimer): number {
     return 0
   }
 
-  var secsGone = (nowTimestampSec % SECS_PER_DAY) - (timer.firstStartTimestampSec % SECS_PER_DAY)
-  secsGone += (secsGone < 0? SECS_PER_DAY : 0)
+  var secsGone = (nowTimestampSec % Constants.SECS_PER_DAY) - (timer.firstStartTimestampSec % Constants.SECS_PER_DAY)
+  secsGone += (secsGone < 0? Constants.SECS_PER_DAY : 0)
   var startTimestampSec = nowTimestampSec - secsGone
   var wday = (new Date(startTimestampSec * 1000)).getDay()
 
@@ -446,7 +427,7 @@ function formatWaterTimers(timers: Array<WaterTimer>): Array<FormattedWaterTimer
 
 async function listWaterTimers(deviceId: string): Promise<Array<WaterTimer>> {
   var promise = new Promise<Array<WaterTimer>>((resolve, reject) => {
-    app.listenCharValueChangeOnce(CHAR_UUID_WATER_TIMER).then((res) => {
+    app.listenCharValueChangeOnce(Constants.CHAR_UUID_WATER_TIMER).then((res) => {
       /*|-num_timers(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|-duration(4)-|*/
       var timers: Array<WaterTimer> = []
       var buffer = Buffer.from(res.value)
@@ -475,8 +456,8 @@ async function listWaterTimers(deviceId: string): Promise<Array<WaterTimer>> {
 
   wx.readBLECharacteristicValue({
     deviceId: deviceId,
-    serviceId: SERVICE_UUID_WATER_TIMER,
-    characteristicId: CHAR_UUID_WATER_TIMER
+    serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+    characteristicId: Constants.CHAR_UUID_WATER_TIMER
   })
   
   return promise
@@ -485,7 +466,7 @@ async function listWaterTimers(deviceId: string): Promise<Array<WaterTimer>> {
 async function createWaterTimer(deivceId: string, timer: WaterTimer): Promise<void> {
   /*|-op(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|*/
   var buffer = Buffer.alloc(15)
-  buffer.writeUInt8(WATER_TIMER_OP_CREATE, 0)
+  buffer.writeUInt8(Constants.WATER_TIMER_OP_CREATE, 0)
   buffer.writeUInt8(0, 1)
   buffer.writeUInt8(timer.wdays, 2)
   buffer.writeUIntLE(timer.firstStartTimestampSec, 3, 6)
@@ -493,8 +474,8 @@ async function createWaterTimer(deivceId: string, timer: WaterTimer): Promise<vo
 
   await wx.writeBLECharacteristicValue({
     deviceId: deivceId,
-    serviceId: SERVICE_UUID_WATER_TIMER,
-    characteristicId: CHAR_UUID_WATER_TIMER,
+    serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+    characteristicId: Constants.CHAR_UUID_WATER_TIMER,
     value: buffer.buffer
   })
 }
@@ -502,7 +483,7 @@ async function createWaterTimer(deivceId: string, timer: WaterTimer): Promise<vo
 async function updateWaterTimer(deivceId: string, timer: WaterTimer): Promise<void> {
   /*|-op(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|*/
   var buffer = Buffer.alloc(15)
-  buffer.writeUInt8(WATER_TIMER_OP_UPDATE, 0)
+  buffer.writeUInt8(Constants.WATER_TIMER_OP_UPDATE, 0)
   buffer.writeUInt8(timer.timerNo, 1)
   buffer.writeUInt8(timer.wdays, 2)
   buffer.writeUIntLE(timer.firstStartTimestampSec, 3, 6)
@@ -510,21 +491,21 @@ async function updateWaterTimer(deivceId: string, timer: WaterTimer): Promise<vo
 
   await wx.writeBLECharacteristicValue({
     deviceId: deivceId,
-    serviceId: SERVICE_UUID_WATER_TIMER,
-    characteristicId: CHAR_UUID_WATER_TIMER,
+    serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+    characteristicId: Constants.CHAR_UUID_WATER_TIMER,
     value: buffer.buffer
   })
 }
  
 async function deleteWaterTimer(deivceId: string, timerNo: number): Promise<void> {
   var buffer = Buffer.alloc(2)
-  buffer.writeUInt8(WATER_TIMER_OP_DELETE, 0)
+  buffer.writeUInt8(Constants.WATER_TIMER_OP_DELETE, 0)
   buffer.writeUInt8(timerNo, 1)
 
   await wx.writeBLECharacteristicValue({
     deviceId: deivceId,
-    serviceId: SERVICE_UUID_WATER_TIMER,
-    characteristicId: CHAR_UUID_WATER_TIMER,
+    serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+    characteristicId: Constants.CHAR_UUID_WATER_TIMER,
     value: buffer.buffer
   })
 }
@@ -536,20 +517,20 @@ async function adjSystemTime(deviceId: string): Promise<void> {
 
   wx.writeBLECharacteristicValue({
     deviceId: deviceId,
-    serviceId: SERVICE_UUID_SYSTEM_TIME,
-    characteristicId: CHAR_UUID_SYSTEM_TIME,
+    serviceId: Constants.SERVICE_UUID_SYSTEM_TIME,
+    characteristicId: Constants.CHAR_UUID_SYSTEM_TIME,
     value: buffer.buffer,
   })
 }
 
 async function stopWater(deviceId: string): Promise<void> {
   var buffer = Buffer.alloc(1)
-  buffer.writeUInt8(1, 0)
+  buffer.writeUInt8(Constants.WATER_CONTROL_OP_STOP, 0)
 
   wx.writeBLECharacteristicValue({
     deviceId: deviceId,
-    serviceId: SERVICE_UUID_WATER_TIMER,
-    characteristicId: CHAR_UUID_WATER_CONTROL,
+    serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+    characteristicId: Constants.CHAR_UUID_WATER_CONTROL,
     value: buffer.buffer,
   })
 }

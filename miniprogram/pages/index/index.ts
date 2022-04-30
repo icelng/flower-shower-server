@@ -1,10 +1,7 @@
 const app = getApp<IAppOption>()
 import { getCharateristic } from "../../utils/util"
 import { Buffer } from 'buffer';
-
-const SERVICE_UUID_LOGIN = "0000000A-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_LOGIN = "00000A01-0000-1000-8000-00805F9B34FB"
-
+import { Constants } from '../../app';
 
 Page({
   data: {
@@ -242,15 +239,15 @@ Page({
   async loginBLE(deviceId: string, defaultPassword?: string): Promise<string> {
     var loginChar: WechatMiniprogram.BLECharacteristic
     try {
-      loginChar = await getCharateristic(deviceId, SERVICE_UUID_LOGIN, CHAR_UUID_LOGIN)
+      loginChar = await getCharateristic(deviceId, Constants.SERVICE_UUID_LOGIN, Constants.CHAR_UUID_LOGIN)
     } catch(e) {
       throw e
     }
 
     await wx.notifyBLECharacteristicValueChange({
       deviceId: deviceId,
-      serviceId: SERVICE_UUID_LOGIN,
-      characteristicId: CHAR_UUID_LOGIN,
+      serviceId: Constants.SERVICE_UUID_LOGIN,
+      characteristicId: Constants.CHAR_UUID_LOGIN,
       state: true
     })
 
@@ -284,8 +281,8 @@ Page({
       var buffer = Buffer.from(password, "utf-8")
       await wx.writeBLECharacteristicValue({
         deviceId: deviceId,
-        serviceId: SERVICE_UUID_LOGIN,
-        characteristicId: CHAR_UUID_LOGIN,
+        serviceId: Constants.SERVICE_UUID_LOGIN,
+        characteristicId: Constants.CHAR_UUID_LOGIN,
         value: buffer.buffer
       })
     } catch(e) {

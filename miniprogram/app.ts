@@ -1,11 +1,41 @@
 // app.ts
 import { Buffer } from 'buffer';
 
-const SERVICE_UUID_CONFIG_MANAGER = "0000000C-0000-1000-8000-00805F9B34FB"
-const CHAR_UUID_CONFIG_MANAGER = "00000C01-0000-1000-8000-00805F9B34FB"
 
-const CONFIG_OP_SET: number = 0
-const CONFIG_OP_GET: number = 1
+export class Constants {
+  public static SERVICE_UUID_WATER_TIMER: string = "000000FE-0000-1000-8000-00805F9B34FB"
+  public static CHAR_UUID_WATER_TIMER: string = "0000FE01-0000-1000-8000-00805F9B34FB"
+  public static CHAR_UUID_WATER_CONTROL: string = "0000FE02-0000-1000-8000-00805F9B34FB"
+  public static CHAR_UUID_WATER_SPEED: string = "0000FE03-0000-1000-8000-00805F9B34FB"
+  public static CHAR_UUID_WATER_MLPERSEC: string = "0000FE04-0000-1000-8000-00805F9B34FB"
+
+  public static WATER_TIMER_OP_CREATE: number = 0
+  public static WATER_TIMER_OP_UPDATE: number = 1
+  public static WATER_TIMER_OP_DELETE: number = 2
+
+  public static WATER_CONTROL_OP_START: number = 0
+  public static WATER_CONTROL_OP_STOP: number = 1
+
+  public static SERVICE_UUID_SYSTEM_TIME: string = "000000FF-0000-1000-8000-00805F9B34FB"
+  public static CHAR_UUID_SYSTEM_TIME: string = "0000FF01-0000-1000-8000-00805F9B34FB"
+
+  public static SERVICE_UUID_CONFIG_MANAGER: string = "0000000C-0000-1000-8000-00805F9B34FB"
+  public static CHAR_UUID_CONFIG_MANAGER: string = "00000C01-0000-1000-8000-00805F9B34FB"
+
+  public static SERVICE_UUID_LOGIN: string = "0000000A-0000-1000-8000-00805F9B34FB"
+  public static CHAR_UUID_LOGIN: string = "00000A01-0000-1000-8000-00805F9B34FB"
+
+
+  public static CONFIG_OP_SET: number = 0
+  public static CONFIG_OP_GET: number = 1
+
+  public static SECS_PER_MINUTE: number = 60
+  public static SECS_PER_HOUR: number = 3600
+  public static SECS_PER_DAY: number = 86400
+  public static SECS_PER_WEEK: number = 604800
+
+  public static WDAYS_ALL = 0x7F
+}
 
 App<IAppOption>({
   globalData: {
@@ -95,18 +125,18 @@ App<IAppOption>({
   async getDeviceConfig(deviceId: string, configName: string): Promise<string> {
     /*|--op(1 byte)--|--config name length(2 bytes)--|--config name(name length bytes)--|*/
     var buffer = Buffer.alloc(configName.length + 3)
-    buffer.writeUInt8(CONFIG_OP_GET, 0)
+    buffer.writeUInt8(Constants.CONFIG_OP_GET, 0)
     buffer.writeUInt16LE(configName.length, 1)
     buffer.write(configName, 3, configName.length, "utf-8")
     await wx.writeBLECharacteristicValue({
       deviceId: deviceId,
-      serviceId: SERVICE_UUID_CONFIG_MANAGER,
-      characteristicId: CHAR_UUID_CONFIG_MANAGER,
+      serviceId: Constants.SERVICE_UUID_CONFIG_MANAGER,
+      characteristicId: Constants.CHAR_UUID_CONFIG_MANAGER,
       value: buffer.buffer
     })
 
     var promise = new Promise<string>((resolve, reject) => {
-      this.listenCharValueChangeOnce(CHAR_UUID_CONFIG_MANAGER).then((res) => {
+      this.listenCharValueChangeOnce(Constants.CHAR_UUID_CONFIG_MANAGER).then((res) => {
         /*|--name length(2 bytes)--|--name(length bytes)--|--value length(2 bytes)--|--value--|*/
         var buffer = Buffer.from(res.value)
         var nameLength = buffer.readUInt16LE(0)
@@ -127,8 +157,8 @@ App<IAppOption>({
 
     wx.readBLECharacteristicValue({
       deviceId: deviceId,
-      serviceId: SERVICE_UUID_CONFIG_MANAGER,
-      characteristicId: CHAR_UUID_CONFIG_MANAGER,
+      serviceId: Constants.SERVICE_UUID_CONFIG_MANAGER,
+      characteristicId: Constants.CHAR_UUID_CONFIG_MANAGER,
     })
 
     return promise
@@ -137,15 +167,15 @@ App<IAppOption>({
   async setDeviceConfig(deviceId: string, configName: string, configValue: string): Promise<void> {
     /*|--op(1 byte)--|--name length(2 bytes)--|--name(name length bytes)--|--value len(2 bytes)--|--value--|*/
     var buffer = Buffer.alloc(configName.length + configValue.length + 5)
-    buffer.writeUInt8(CONFIG_OP_SET, 0)
+    buffer.writeUInt8(Constants.CONFIG_OP_SET, 0)
     buffer.writeUInt16LE(configName.length, 1)
     buffer.write(configName, 3, configName.length, "utf-8")
     buffer.writeUInt16LE(configValue.length, 3 + configName.length)
     buffer.write(configValue, 5 + configName.length, configValue.length, "utf-8")
     await wx.writeBLECharacteristicValue({
       deviceId: deviceId,
-      serviceId: SERVICE_UUID_CONFIG_MANAGER,
-      characteristicId: CHAR_UUID_CONFIG_MANAGER,
+      serviceId: Constants.SERVICE_UUID_CONFIG_MANAGER,
+      characteristicId: Constants.CHAR_UUID_CONFIG_MANAGER,
       value: buffer.buffer
     })
   },
