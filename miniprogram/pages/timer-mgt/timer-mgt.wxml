@@ -34,7 +34,7 @@
       </button>
     </view>
     <view style="height: 100%; display: flex; align-items: center;">
-      <button size="mini" bindtap="btnAddTimer" class="add-timer-button" hover-class="add-timer-button-hover">
+      <button size="mini" bindtap="btnShowAddTimer" class="add-timer-button" hover-class="add-timer-button-hover">
         <view style="height: 100%; display: flex; align-items: center;">
           <image class="btn-icon" src="../../images/plus.png" ></image>
         </view>
@@ -47,7 +47,7 @@
         <view class="timer-item">
             <mp-slideview buttons="{{slideButtons}}" data-item-index="{{index}}" bindbuttontap="btnDeleteTimer">
               <mp-cell hover='true' catchtap="btnEditTimer" data-item-index="{{index}}">
-                <rich-text nodes="<h3>开始时间: {{item.startTime}}</h3><p>浇水量: {{item.volumeML}} ml 持续时间: {{item.duration}}</p>"/>
+                <rich-text nodes="<h3>开始时间: {{item.startTime}}</h3><p>{{item.wdays}}</p>浇水量: {{item.volumeML}} ml 持续时间: {{item.duration}}</p>"/>
               </mp-cell>
             </mp-slideview>
         </view>
@@ -58,45 +58,48 @@
 
 
 <page-container 
+  style="height: 60%;"
   show="{{isShowAddTimerContainer}}"
   round="true"
   overlay="true"
   duration="300"
   position="bottom"
   close-on-slide-down="{{false}}"
-  bindbeforeenter="onBeforeEnter"
-  bindenter="onEnter"
-  bindafterenter="onAfterEnter"
-  bindbeforeleave="onBeforeLeave"
-  bindleave="onLeave"
-  bindafterleave="onAfterLeave"
-  bindclickoverlay="onClickOverlay"
-  custom-style="{{customStyle}}"
-  overlay-style="{{overlayStyle}}"
 >
 <view class="add-timer-page">
-  <view style="position: absolute; top: 10%; display: flex; flex-direction: column; align-items: center; width: 100%;">
-    <view style="width: 80%">
-      <view class="label">开始时间: </view>
-      <picker mode="time" value="{{pickAddStartTime}}" start="00:00" end="23:59" bindchange="onPickAddStartTimeChange">
-        <view class="weui-cells">
-          <view class="weui-cell weui-cell_input">
-            <input class="weui-input" value="{{pickAddStartTime}}" disabled/>
-          </view>
-        </view>
+  <view style="padding-top: 5%; width: 100%; display: flex; flex-direction: column; align-items: center; width: 100%;">
+    <view style="width: 85%; display: flex; flex-direction: column; align-items: center;">
+      <text style="width: 100%; text-align: left;">开始时间: </text>
+      <picker style="width: 100%; display: flex; flex-direction: column; align-items: stretch;" mode="time" value="{{pickAddStartTime}}" start="00:00" end="23:59" bindchange="onPickAddStartTimeChange">
+        <input value="{{pickAddStartTime}}" disabled/>
       </picker>
     </view>
 
-    <view class="weui-cells" style="width: 80%" >
-      <view class="label">浇水量(ml): </view>
-      <view class="weui-cell weui-cell_input">
-        <input class="weui-input" value="{{volumeMLForNewTimer}}" bindinput="bindInputVolumeForNewTimer" />
-      </view>
+    <view style="width: 85%; padding-top: 3%;">
+      <view style="text-align: left;" >星期:</view>
+      <checkbox-group  bindchange="checkboxChangeForNewTimer">
+        <view style="width: 100%; display: flex; justify-content: space-around;" >
+          <view wx:for="{{checkboxItemsForNewTimer}}" style="display: flex; flex-direction: column; align-items: center;">
+            <view>{{item.name}}</view>
+            <checkbox value="{{item.value}}" checked="{{item.checked}}" />
+          </view>
+        </view>
+      </checkbox-group>
+    </view>
+
+    <view style="width: 85%; padding-top: 3%; display: flex; flex-direction: column; align-items: center;">
+      <text style="width: 100%; text-align: left;">浇水量(ml): </text>
+      <input class="my-input" type="number" maxlength="4" value="{{volumeMLForNewTimer}}" bindinput="bindInputVolumeForNewTimer" />
     </view>
   </view>
-  <view style="position: absolute; bottom: 8%; width: 100%; display: flex; flex-direction: row; justify-content: center; align-items: center;">
-    <button bindtap="btnCancelAddTimer" size="mini">取消</button>
-    <button bindtap="btnDoAddTimer" type="primary" size="mini" >确定</button>
+
+  <view style="width: 100%; padding-top: 8%; padding-bottom: 4%;display: flex; justify-content: space-around;">
+    <view>
+      <button bindtap="btnCancelAddTimer" size="mini">取消</button>
+    </view>
+    <view>
+      <button bindtap="btnAddTimer" type="primary" size="mini" >确定</button>
+    </view>
   </view>
 </view>
 </page-container>

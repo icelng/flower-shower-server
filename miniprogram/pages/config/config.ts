@@ -176,6 +176,15 @@ Page({
     wx.hideToast()
   },
 
+  async btnModPassword() {
+    var password = await app.getDeviceConfig(this.deviceId, "password")
+    await wx.showModal({ confirmText: "知道了",
+      content: `"${password}" 是改变不了的\n(｀・ω・´)`,
+      editable: false,
+      showCancel: false
+    })
+  },
+
   async btnRename() {
     var newDeviceName: string
     while (true) {

@@ -15,7 +15,7 @@ interface WaterTimer {
 
 interface FormattedWaterTimer {
   timerNo: number,
-  wdays: Array<boolean>,
+  wdays: string,
   startTime: string,
   volumeML: number,
   duration: string
@@ -37,6 +37,12 @@ interface WateringStatus {
   secondsLeft: number
 }
 
+interface WeekdayItem {
+  name: string,
+  value: number,
+  checked: boolean
+}
+
 Page({
   data: {
     slideButtons: [{
@@ -44,14 +50,20 @@ Page({
         text: '删除',
     }],
     pickerMinutesSecsArray: [] as Array<Array<string>>,
-    pickerAddDurationIndex: [] as Array<number>,
+    checkboxItemsForNewTimer: [{value: 0x01, name: "一", checked: false},
+                               {value: 0x02, name: "二", checked: false},
+                               {value: 0x04, name: "三", checked: false},
+                               {value: 0x08, name: "四", checked: false},
+                               {value: 0x10, name: "五", checked: false},
+                               {value: 0x20, name: "六", checked: false},
+                               {value: 0x40, name: "日", checked: false},
+                               {value: 0x80, name: "每天", checked: false}] as Array<WeekdayItem>,
     isShowAddTimerContainer: false,
     pickAddStartTime: "13:00",
     volumeMLForNewTimer: 30 as number,
     nextWaterTime: {} as NextWaterTime,
     wateringStatus: DEFAULT_WATERING_STATUS as WateringStatus,
     timers: [] as Array<FormattedWaterTimer>
-    // timers: [{timerNo: 2, startTime: "6 时 12 分", volumeML: 100, duration: "3 分 12 秒"}] as Array<FormattedWaterTimer>,
   },
 
   deviceId: "",
@@ -59,6 +71,7 @@ Page({
   formattedTimers: [] as Array<FormattedWaterTimer>,
   refreshPageTimerNo: undefined as number | undefined,
   stoppedTimers: new Map<number, number>() as Map<number, number>,  // timerNo -> restoreTimestampSecs
+  wdaysForNewTimer: 0 as number,
 
   async onLoad() {
     if (app.globalData.connectedDevice === undefined) {
@@ -77,12 +90,24 @@ Page({
       minutes.push(i + "分")
       secs.push(i + "秒")
     }
-    this.setData({pickerMinutesSecsArray: [minutes, secs]})
+    this.setData({
+      pickerMinutesSecsArray: [minutes, secs],
+      pickAddStartTime: loadDefaultAddStartTime(),
+      volumeMLForNewTimer: loadDefaulVolume(),
+    })
 
     adjSystemTime(this.deviceId)
   },
 
   refreshPage() {
+    // this.timers = [{
+    //   timerNo: 2,
+    //   firstStartTimestampSec: 1651321585,
+    //   wdays: 0xFF,
+    //   volumeML: 100,
+    //   durationSec: 300
+    // }] // for debug
+
     if (this.timers.length === 0) {
       this.setData({timers: [], wateringStatus: DEFAULT_WATERING_STATUS})
       return
@@ -97,6 +122,37 @@ Page({
       wateringStatus: getWateringStatus(nextTimer, this.stoppedTimers.has(nextTimer.timerNo)),
       timers: this.formattedTimers
     })
+  },
+
+  checkboxChangeForNewTimer(event: WechatMiniprogram.CustomEvent) {
+    var newWdays: number = 0
+    var lastWdays = this.wdaysForNewTimer
+    var newCheckboxItems = this.data.checkboxItemsForNewTimer
+
+    for (let value of event.detail.value) {
+      newWdays |= Number(value)
+    }
+
+    if (((newWdays ^ lastWdays) & 0x80) !== 0) {
+      if ((newWdays & 0x80) !== 0) {
+        newWdays = 0xFF
+      } else {
+        newWdays = 0
+      }
+    } else {
+      if ((newWdays & 0x7F) == 0x7F) {
+        newWdays |= 0x80
+      } else {
+        newWdays &= 0x7F
+      }
+    }
+
+    for (let item of newCheckboxItems) {
+      item.checked = (item.value & newWdays) !== 0
+    }
+
+    this.wdaysForNewTimer = newWdays
+    this.setData({checkboxItemsForNewTimer: newCheckboxItems})
   },
 
   btnStopTimer() {
@@ -119,7 +175,7 @@ Page({
 
     wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
     stopWater(this.deviceId).then(() => {
-      wx.showToast({ icon: 'error', title: "停止成功", duration: 1000 })
+      wx.showToast({ icon: 'success', title: "停止成功", duration: 1000 })
       this.stoppedTimers.set(timerNo, Date.now() / 1000 + calcSecsToStop(timer))
       this.refreshPage()
     }).catch((e) => {
@@ -145,7 +201,7 @@ Page({
     try {
       await deleteWaterTimer(this.deviceId, timer.timerNo)
       this.timers = await listWaterTimers(this.deviceId)
-      wx.showToast({ icon: 'error', title: "删除成功", duration: 1000 })
+      wx.showToast({ icon: 'success', title: "删除成功", duration: 1000 })
       this.refreshPage()
     } catch (e) {
       console.log("Failed to delete timer, timer no: " + timer.timerNo, ", ", e)
@@ -153,10 +209,8 @@ Page({
     }
   },
 
-  btnAddTimer() {
+  btnShowAddTimer() {
     this.setData({
-      pickAddStartTime: loadDefaultAddStartTime(),
-      pickerAddDurationIndex: loadDefaultAddDuration(),
       isShowAddTimerContainer: true
     })
   },
@@ -169,11 +223,30 @@ Page({
     this.setData({ volumeMLForNewTimer: e.detail.value })
   },
 
-  async btnDoAddTimer() {
+  async btnAddTimer() {
+    console.log("Volume now is: " +this.data.volumeMLForNewTimer)
+    if (this.data.volumeMLForNewTimer == 0 || Number.isNaN(this.data.volumeMLForNewTimer)) {
+      await wx.showModal({
+        title: "╮(─▽─)╭浇水量不能为空哟!",
+        confirmText: "嗯嗯",
+        showCancel: false
+      })
+      return
+    }
+
+    if (this.wdaysForNewTimer === 0) {
+      await wx.showModal({
+        title: "～(´ー｀～) 请至少选择一天!",
+        confirmText: "嗯嗯",
+        showCancel: false
+      })
+      return
+    }
+
     var startTimestampSec = Date.parse("2022 1 1 " + this.data.pickAddStartTime + ":00") / 1000
     var timer: WaterTimer = {
       timerNo: 0,
-      wdays: Constants.WDAYS_ALL,
+      wdays: this.wdaysForNewTimer & 0x7F,
       firstStartTimestampSec: startTimestampSec,
       volumeML: this.data.volumeMLForNewTimer,
       durationSec: 1
@@ -187,7 +260,7 @@ Page({
       wx.showToast({icon: 'success', title: "添加成功", duration: 1000})
       this.setData({isShowAddTimerContainer: false})
       saveDefaultAddStartTime(this.data.pickAddStartTime)
-      saveDefaultAddDuration(this.data.pickerAddDurationIndex)
+      saveDefaultVolume(this.data.volumeMLForNewTimer)
       this.refreshPage()
     } catch (e) {
       wx.showToast({ icon: 'error', title: "添加失败", duration: 1000 })
@@ -197,10 +270,6 @@ Page({
 
   onPickAddStartTimeChange(e: WechatMiniprogram.CustomEvent) {
     this.setData({pickAddStartTime: e.detail.value})
-  },
-
-  onPickAddDurationChange(e: WechatMiniprogram.CustomEvent) {
-    this.setData({pickerAddDurationIndex: e.detail.value})
   },
 
   onUnload() {
@@ -362,22 +431,20 @@ function loadDefaultAddStartTime(): string {
     var time = wx.getStorageSync<string>("df-add-start-time")
     if (time === "") return "12:00"
     return time
-  } catch(e) {
+  } catch {
     return "12:00"
   }
 }
 
-function saveDefaultAddDuration(duration: Array<number>): void {
-  wx.setStorageSync<Array<number>>("df-add-duration", duration)
+function saveDefaultVolume(volumeML: number): void {
+  wx.setStorageSync<number>("df-volume", volumeML)
 }
  
-function loadDefaultAddDuration(): Array<number> {
-  try{
-    var duration = wx.getStorageSync<Array<number>>("df-add-duration")
-    if (duration.length === 0) return [1, 1]
-    return duration
-  } catch(e) {
-    return [1, 1]
+function loadDefaulVolume(): number {
+  try {
+    return wx.getStorageSync<number>("df-volume")
+  } catch {
+    return 30
   }
 }
 
@@ -392,17 +459,18 @@ function formatDuration(durationSec: number): string {
   return (durationSec >= 60? Math.floor(durationSec / 60) + " 分 " : "") + durationSec % 60 + " 秒"
 }
 
-function formatWdays(wdaysRaw: number): Array<boolean> {
-  var wdays: Array<boolean> = []
+function formatWdays(wdaysRaw: number): string {
+  if (wdaysRaw == 0x7F) return "每天"
+
+  var translate = ["一", "二", "三", "四", "五", "六", "日"]
+  var str: string = "星期"
   for (let i = 0; i < 7; i++) {
-    if (((wdaysRaw >> i) & 1) !== 0) {
-      wdays.push(true)
-    } else {
-      wdays.push(false)
+    if (((wdaysRaw >> i) & 1) === 1) {
+      str = str + " " + translate[i]
     }
   }
 
-  return wdays
+  return str
 }
 
 function formatWaterTimer(timer: WaterTimer): FormattedWaterTimer {

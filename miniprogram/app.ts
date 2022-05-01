@@ -34,7 +34,7 @@ export class Constants {
   public static SECS_PER_DAY: number = 86400
   public static SECS_PER_WEEK: number = 604800
 
-  public static WDAYS_ALL = 0x7F
+  public static WDAYS_ALL = 0x7E
 }
 
 App<IAppOption>({
