@@ -61,6 +61,8 @@ Page({
                                {value: 0x01, name: "日", checked: false},
                                {value: 0x80, name: "每天", checked: false}] as Array<WeekdayItem>,
     isShowAddTimerContainer: false,
+    isUpdateTimer: false,
+    updatingTimer: {} as FormattedWaterTimer,
     pickAddStartTime: "13:00",
     volumeMLForNewTimer: 30 as number,
     nextWaterTime: {} as NextWaterTime,
@@ -106,7 +108,7 @@ Page({
     //   timerNo: 2,
     //   firstStartTimestampSec: 1651420860,
     //   wdays: 0x02,
-    //   volumeML: 100,
+    //   volumeML: 120,
     //   durationSec: 300
     // },
     // {
@@ -219,18 +221,56 @@ Page({
     }
   },
 
-  btnShowAddTimer() {
-    this.setData({
-      isShowAddTimerContainer: true
-    })
-  },
-
   btnCancelAddTimer() {
     this.setData({isShowAddTimerContainer: false})
   },
 
   bindInputVolumeForNewTimer(e: WechatMiniprogram.CustomEvent) {
     this.setData({ volumeMLForNewTimer: e.detail.value })
+  },
+
+  btnShowAddTimer() {
+    this.setData({
+      isShowAddTimerContainer: true,
+      isUpdateTimer: false,
+      pickAddStartTime: loadDefaultAddStartTime(),
+      volumeMLForNewTimer: loadDefaulVolume()
+    })
+  },
+
+  btnShowUpdateTimerPage(event: WechatMiniprogram.BaseEvent) {
+    var itemIndex = event.currentTarget.dataset.itemIndex
+    var updatingTimer = this.data.timers[itemIndex]
+    var rawTimer: WaterTimer | undefined = undefined
+    for (let t of this.timers) {
+      if (t.timerNo === updatingTimer.timerNo) {
+        rawTimer = t
+      }
+    }
+
+    var date = new Date(rawTimer!.firstStartTimestampSec * 1000)
+    var newWdays = rawTimer!.wdays
+    if ((newWdays & 0x7F) == 0x7F) {
+      newWdays |= 0x80
+    } else {
+      newWdays &= 0x7F
+    }
+    var newCheckboxItems = this.data.checkboxItemsForNewTimer
+    for (let item of newCheckboxItems) {
+      item.checked = (item.value & newWdays) !== 0
+    }
+    this.wdaysForNewTimer = newWdays
+
+    saveDefaultAddStartTime(this.data.pickAddStartTime)
+    saveDefaultVolume(this.data.volumeMLForNewTimer)
+    this.setData({
+      pickAddStartTime: date.getHours() + ":" + date.getMinutes(),
+      checkboxItemsForNewTimer: newCheckboxItems,
+      volumeMLForNewTimer: rawTimer!.volumeML,
+      updatingTimer: this.data.timers[itemIndex],
+      isShowAddTimerContainer:true,
+      isUpdateTimer: true
+    })
   },
 
   async btnAddTimer() {
@@ -255,7 +295,7 @@ Page({
 
     var startTimestampSec = Date.parse("2022 1 1 " + this.data.pickAddStartTime + ":00") / 1000
     var timer: WaterTimer = {
-      timerNo: 0,
+      timerNo: this.data.isUpdateTimer? this.data.updatingTimer.timerNo : 0,
       wdays: this.wdaysForNewTimer & 0x7F,
       firstStartTimestampSec: startTimestampSec,
       volumeML: this.data.volumeMLForNewTimer,
@@ -264,7 +304,11 @@ Page({
 
     wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
     try {
-      await createWaterTimer(this.deviceId, timer)
+      if (this.data.isUpdateTimer) {
+        await updateWaterTimer(this.deviceId, timer)
+      } else {
+        await createWaterTimer(this.deviceId, timer)
+      }
       this.timers = await listWaterTimers(this.deviceId)
       console.log("Add timer succeed, timers now: ", this.timers);
       wx.showToast({icon: 'success', title: "添加成功", duration: 1000})

@@ -47,9 +47,9 @@
       <view style="display: flex; justify-content: center;" wx:for="{{timers}}">
         <view class="timer-item">
             <mp-slideview buttons="{{slideButtons}}" data-item-index="{{index}}" bindbuttontap="btnDeleteTimer">
-              <mp-cell hover='true' catchtap="btnEditTimer" data-item-index="{{index}}">
+              <mp-cell hover='true' catchtap="btnShowUpdateTimerPage" data-item-index="{{index}}">
                 <view style="display: flex; align-items: center;">
-                  <rich-text nodes="<h3>开始时间: {{item.startTime}}</h3>"/>
+                  <rich-text nodes="<h4>开始时间: {{item.startTime}}</h4>"/>
                   <view wx:if="{{item.isConflicted}}" style="color: red;">(冲突)</view>
                 </view>
                 <rich-text nodes="<p>{{item.wdays}}</p>"/>
@@ -73,8 +73,21 @@
   close-on-slide-down="{{false}}"
 >
 <view class="add-timer-page">
-  <view style="padding-top: 5%; width: 100%; display: flex; flex-direction: column; align-items: center; width: 100%;">
-    <view style="width: 85%; display: flex; flex-direction: column; align-items: center;">
+  <view style="padding-top: 3%; width: 100%; display: flex; flex-direction: column; align-items: center; width: 100%;">
+    <rich-text wx:if="{{isUpdateTimer}}" nodes="<h3>修改定时任务</h3>"/>
+    <rich-text wx:else nodes="<h3>添加定时任务</h3>"/>
+    <view style="padding-top: 3%; width: 90%; display: flex; flex-direction: column; align-items: center;" wx:if="{{isUpdateTimer}}">
+      <view style="padding: 3%" class="timer-item">
+        <view style="display: flex; align-items: center;">
+          <rich-text nodes="<p>开始时间: {{updatingTimer.startTime}}</p>"/>
+          <view wx:if="{{updatingTimer.isConflicted}}" style="color: red;">(冲突)</view>
+        </view>
+        <rich-text nodes="<p>{{updatingTimer.wdays}}</p>"/>
+        <rich-text nodes="浇水量: {{updatingTimer.volumeML}} ml 持续时间: {{updatingTimer.duration}}</p>"/>
+      </view>
+    </view>
+
+    <view style="width: 85%; padding-top: 3%; display: flex; flex-direction: column; align-items: center;">
       <text style="width: 100%; text-align: left;">开始时间: </text>
       <picker style="width: 100%; display: flex; flex-direction: column; align-items: stretch;" mode="time" value="{{pickAddStartTime}}" start="00:00" end="23:59" bindchange="onPickAddStartTimeChange">
         <input value="{{pickAddStartTime}}" disabled/>
@@ -104,7 +117,8 @@
       <button bindtap="btnCancelAddTimer" size="mini">取消</button>
     </view>
     <view>
-      <button bindtap="btnAddTimer" type="primary" size="mini" >确定</button>
+      <button wx:if="{{isUpdateTimer}}" bindtap="btnAddTimer" type="primary" size="mini">修改</button>
+      <button wx:else bindtap="btnAddTimer" type="primary" size="mini" >添加</button>
     </view>
   </view>
 </view>
