@@ -183,7 +183,7 @@ Page({
     //   success: () => {
 
     //   }
-    // })
+    // })  // for debug
 
     // 监听扫描到新设备事件
     wx.onBluetoothDeviceFound((res) => {

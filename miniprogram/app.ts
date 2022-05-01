@@ -34,6 +34,8 @@ export class Constants {
   public static SECS_PER_DAY: number = 86400
   public static SECS_PER_WEEK: number = 604800
 
+  public static UTC_OFFSET_SECS: number = 0
+
   public static WDAYS_ALL = 0x7E
 }
 
@@ -45,6 +47,10 @@ App<IAppOption>({
   charValueChangeCallbacks: undefined,
 
   onLaunch() {
+    // init Constants
+    var date = new Date()
+    Constants.UTC_OFFSET_SECS = (0 - date.getTimezoneOffset() * Constants.SECS_PER_MINUTE)
+
     wx.onBLEConnectionStateChange((result: WechatMiniprogram.OnBLEConnectionStateChangeCallbackResult) => {
       console.log("BLE connection change! deviceId: ", result.deviceId)
       if (this.globalData.isBLEConnected && !result.connected) {

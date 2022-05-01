@@ -12,7 +12,8 @@
     <view wx:else class="timer-status">
       <view>
         <text>下一次浇水在 </text>
-        <text wx:if="{{nextWaterTime.hoursLeft !== 0}}">{{nextWaterTime.hoursLeft}} 时 {{nextWaterTime.minutesLeft}} 分</text>
+        <text wx:if="{{nextWaterTime.daysLeft !== 0}}">{{nextWaterTime.daysLeft}} 天 {{nextWaterTime.hoursLeft}} 时</text>
+        <text wx:elif="{{nextWaterTime.hoursLeft !== 0}}">{{nextWaterTime.hoursLeft}} 时 {{nextWaterTime.minutesLeft}} 分</text>
         <text wx:else><text wx:if="{{nextWaterTime.minutesLeft !== 0}}">{{nextWaterTime.minutesLeft}} 分 </text>{{nextWaterTime.secondsLeft}} 秒</text>
         <text>后开始</text>
       </view>
@@ -47,7 +48,12 @@
         <view class="timer-item">
             <mp-slideview buttons="{{slideButtons}}" data-item-index="{{index}}" bindbuttontap="btnDeleteTimer">
               <mp-cell hover='true' catchtap="btnEditTimer" data-item-index="{{index}}">
-                <rich-text nodes="<h3>开始时间: {{item.startTime}}</h3><p>{{item.wdays}}</p>浇水量: {{item.volumeML}} ml 持续时间: {{item.duration}}</p>"/>
+                <view style="display: flex; align-items: center;">
+                  <rich-text nodes="<h3>开始时间: {{item.startTime}}</h3>"/>
+                  <view wx:if="{{item.isConflicted}}" style="color: red;">(冲突)</view>
+                </view>
+                <rich-text nodes="<p>{{item.wdays}}</p>"/>
+                <rich-text nodes="浇水量: {{item.volumeML}} ml 持续时间: {{item.duration}}</p>"/>
               </mp-cell>
             </mp-slideview>
         </view>

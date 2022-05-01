@@ -18,10 +18,12 @@ interface FormattedWaterTimer {
   wdays: string,
   startTime: string,
   volumeML: number,
-  duration: string
+  duration: string,
+  isConflicted: boolean
 }
 
 interface NextWaterTime {
+  daysLeft: number,
   hoursLeft: number,
   minutesLeft: number,
   secondsLeft: number,
@@ -50,13 +52,13 @@ Page({
         text: '删除',
     }],
     pickerMinutesSecsArray: [] as Array<Array<string>>,
-    checkboxItemsForNewTimer: [{value: 0x01, name: "一", checked: false},
-                               {value: 0x02, name: "二", checked: false},
-                               {value: 0x04, name: "三", checked: false},
-                               {value: 0x08, name: "四", checked: false},
-                               {value: 0x10, name: "五", checked: false},
-                               {value: 0x20, name: "六", checked: false},
-                               {value: 0x40, name: "日", checked: false},
+    checkboxItemsForNewTimer: [{value: 0x02, name: "一", checked: false},
+                               {value: 0x04, name: "二", checked: false},
+                               {value: 0x08, name: "三", checked: false},
+                               {value: 0x10, name: "四", checked: false},
+                               {value: 0x20, name: "五", checked: false},
+                               {value: 0x40, name: "六", checked: false},
+                               {value: 0x01, name: "日", checked: false},
                                {value: 0x80, name: "每天", checked: false}] as Array<WeekdayItem>,
     isShowAddTimerContainer: false,
     pickAddStartTime: "13:00",
@@ -102,8 +104,15 @@ Page({
   refreshPage() {
     // this.timers = [{
     //   timerNo: 2,
-    //   firstStartTimestampSec: 1651321585,
-    //   wdays: 0xFF,
+    //   firstStartTimestampSec: 1651420860,
+    //   wdays: 0x02,
+    //   volumeML: 100,
+    //   durationSec: 300
+    // },
+    // {
+    //   timerNo: 3,
+    //   firstStartTimestampSec: 1651420680,
+    //   wdays: 0x01,
     //   volumeML: 100,
     //   durationSec: 300
     // }] // for debug
@@ -115,7 +124,8 @@ Page({
 
     this.stoppedTimers = refreshStoppedTimers(this.stoppedTimers)
     this.timers = sortWaterTimers(this.timers, this.stoppedTimers)
-    this.formattedTimers = formatWaterTimers(this.timers)
+    var conflictedTimers = findConflictedWaterTimers(this.timers)
+    this.formattedTimers = formatWaterTimers(this.timers, conflictedTimers)
     var nextTimer = this.timers[0]
     this.setData({
       nextWaterTime: calcNextWaterTime(nextTimer),
@@ -322,6 +332,7 @@ function calcNextWaterTime(timer: WaterTimer): NextWaterTime {
   var secsToStart: number = calcSecsToStart(timer)
 
   var nextWaterTime: NextWaterTime = {
+    daysLeft: Math.floor(secsToStart / Constants.SECS_PER_DAY),
     hoursLeft: Math.floor((secsToStart % Constants.SECS_PER_DAY) / Constants.SECS_PER_HOUR),
     minutesLeft: Math.floor((secsToStart % Constants.SECS_PER_HOUR) / Constants.SECS_PER_MINUTE),
     secondsLeft: Math.floor(secsToStart % Constants.SECS_PER_MINUTE),
@@ -422,6 +433,50 @@ function refreshStoppedTimers(stoppedTimers: Map<number, number>): Map<number, n
   return newStoppedTimers
 }
 
+function findConflictedWaterTimers(timers: Array<WaterTimer>): Set<number> {
+  if (timers.length <= 1) return new Set<number>()
+
+  interface Range {
+    timerNo: number,
+    startTimeInDay: number,
+    endTimeInDay: number
+  }
+
+  var ranges = new Array<Range>()
+  for (let timer of timers) {
+    for (let i = 0; i < 7; i++) {
+      if (((timer.wdays >> i) & 1) !== 0) {
+        var startTimeInDay = i * Constants.SECS_PER_DAY +
+                             (timer.firstStartTimestampSec + Constants.UTC_OFFSET_SECS) % Constants.SECS_PER_DAY
+        var endTimeInDay = startTimeInDay + timer.durationSec
+        var range: Range = {
+          timerNo: timer.timerNo,
+          startTimeInDay: startTimeInDay,
+          endTimeInDay: endTimeInDay
+        }
+        ranges.push(range)
+      }
+    }
+  }
+  ranges = ranges.sort((a, b) => {
+    return a.startTimeInDay - b.startTimeInDay
+  })
+
+  var conflictedTimerNos = new Set<number>()
+  var numRanges = ranges.length
+  for (let i = 0; i < numRanges; i++) {
+    var curRange = ranges[i]
+    var nextRange = ranges[(i + 1) % numRanges]
+    var nextStartTimeInDay = nextRange.startTimeInDay + ((i + 1) == numRanges? Constants.SECS_PER_WEEK : 0)
+    if (curRange.endTimeInDay > nextStartTimeInDay) {
+      conflictedTimerNos.add(curRange.timerNo)
+      conflictedTimerNos.add(nextRange.timerNo)
+    }
+  }
+
+  return conflictedTimerNos
+}
+
 function saveDefaultAddStartTime(time: string): void {
   wx.setStorageSync<string>("df-add-start-time", time)
 }
@@ -462,33 +517,30 @@ function formatDuration(durationSec: number): string {
 function formatWdays(wdaysRaw: number): string {
   if (wdaysRaw == 0x7F) return "每天"
 
-  var translate = ["一", "二", "三", "四", "五", "六", "日"]
+  var translate = ["日", "一", "二", "三", "四", "五", "六"]
   var str: string = "星期"
   for (let i = 0; i < 7; i++) {
-    if (((wdaysRaw >> i) & 1) === 1) {
-      str = str + " " + translate[i]
+    var j = (i + 1) % 7
+    if (((wdaysRaw >> j) & 1) === 1) {
+      str = str + " " + translate[j]
     }
   }
 
   return str
 }
 
-function formatWaterTimer(timer: WaterTimer): FormattedWaterTimer {
-  var formattedTimer: FormattedWaterTimer = {
-    timerNo: timer.timerNo,
-    wdays: formatWdays(timer.wdays),
-    startTime: formatTimestamp(timer.firstStartTimestampSec),
-    volumeML: timer.volumeML,
-    duration: formatDuration(timer.durationSec)
-  }
-
-  return formattedTimer
-}
-
-function formatWaterTimers(timers: Array<WaterTimer>): Array<FormattedWaterTimer> {
+function formatWaterTimers(timers: Array<WaterTimer>, conflictedTimerNos: Set<number>): Array<FormattedWaterTimer> {
   var formattedTimers: Array<FormattedWaterTimer> = []
   timers.forEach((timer) => {
-    formattedTimers.push(formatWaterTimer(timer))
+    var formattedTimer: FormattedWaterTimer = {
+      timerNo: timer.timerNo,
+      wdays: formatWdays(timer.wdays),
+      startTime: formatTimestamp(timer.firstStartTimestampSec),
+      volumeML: timer.volumeML,
+      duration: formatDuration(timer.durationSec),
+      isConflicted: conflictedTimerNos.has(timer.timerNo)
+    }
+    formattedTimers.push(formattedTimer)
   })
   return formattedTimers
 }
