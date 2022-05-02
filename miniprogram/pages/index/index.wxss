@@ -1,19 +1,24 @@
 /**index.wxss**/
 
+page {
+  height: 100%;
+  background: linear-gradient(to top, #fdfdfd, #f9f9f9); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+}
+
 .device-item {
   margin-bottom:24rpx;
   width: 96%;
-  background: rgb(228, 238, 240);
   border-radius: 18rpx;
-  box-shadow: 2px 2px 2px #cdcfcf;
+  box-shadow: 1px 1px 1px #d2d5d6ee;
+  background: linear-gradient(to right, #ebebeb, #ffffff); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
  }
 
  .scan-device-item {
   margin-bottom:24rpx;
   width: 96%;
-  background: rgb(228, 238, 240);
   border-radius: 18rpx;
-  box-shadow: 2px 2px 2px #cdcfcf;
+  box-shadow: 1px 1px 1px #cdcfcf;
+  background: linear-gradient(to right, #ebebeb, #ffffff); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
  }
 
  .loader {

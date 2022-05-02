@@ -1,5 +1,6 @@
 <!--pages/timer-mgt/timer-mgt.wxml-->
 <view style="height: 100%; display: flex; flex-direction: column;">
+  <image class="background-image" src="../../images/kawayi.png" mode="widthFix" />
   <view style="flex: 2"></view>
   <view style="flex: 2; display: flex; justify-content: center; align-items: center;">
     <view wx:if="{{timers.length === 0}}" style="padding: 8%;">

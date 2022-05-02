@@ -1,20 +1,21 @@
 /* pages/timer-mgt/timer-mgt.wxss */
 page {
   height: 100%;
+  background: linear-gradient(to top, #fdfdfd, #f9f9f9); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
 }
 
 .timer-item {
   margin-bottom:24rpx;
   width: 94%;
-  background: rgb(228, 238, 240);
   border-radius: 18rpx;
-  box-shadow: 2px 2px 2px #cdcfcf;
+  box-shadow: 1px 1px 1px #d2d5d6ee;
   padding-left: 3%;
+  background: linear-gradient(to right, #ebebeb, #ffffff); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
  }
 
 .add-timer-button {
   height: 100%;
-  background-color: white;
+  background-color: rgba(255, 255, 255, 0);
 }
 
 
@@ -24,7 +25,7 @@ page {
 
 .stop-timer-button {
   height: 100%;
-  background-color: white;
+  background-color: rgba(255, 255, 255, 0);
 }
 
 .stop-timer-button-hover {
@@ -49,6 +50,7 @@ page {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  background: linear-gradient(to top, #f7f7f7, #f3f3f3); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
 }
 
 .loader {
@@ -69,11 +71,13 @@ page {
 checkbox {
   width: 40rpx;
   height: 40rpx;
+  background-color: rgba(250, 250, 250, 0);
 }
 /*checkbox 选项框大小  */
 checkbox .wx-checkbox-input {
   width: 40rpx;
   height: 40rpx;
+  background-color: rgba(250, 250, 250, 0);
 }
 /*checkbox选中后样式  */
 checkbox .wx-checkbox-input.wx-checkbox-input-checked {
@@ -128,4 +132,11 @@ input:focus {
   padding: 7px 0;
   background: transparent;
   transition: border-color 0.2s;
+}
+
+.background-image {
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  z-index: 0;
 }
