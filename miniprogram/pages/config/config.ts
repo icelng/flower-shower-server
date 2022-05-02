@@ -4,31 +4,37 @@ import { Constants } from '../../app';
 
 const ADVICE_ADJ_WATER_TIME_SEC = 60
 
+const CONFIG_NAME_LED = "led-level"
+
 Page({
 
   data: {
     menuButtonPosition: {} as WechatMiniprogram.Rect,
     deviceName: "" as string,
-    adjustingTip: "" as string
+    adjustingTip: "" as string,
+    isLedOpen: false
   },
   deviceId: "" as string,
   isAdjusting: false as boolean,
   startAdjWaterTimestmpMs: 0 as number,
 
-  onLoad() {
+  async onLoad() {
     var deviceId = app.globalData.connectedDevice?.deviceId
     if (deviceId !== undefined) {
       this.deviceId = deviceId
     }
 
-    app.getDeviceConfig(this.deviceId, "device-name").then((res) => {
-      this.setData({
-        deviceName: res
-      })
-    })
-
+    // menu height should be set before async query config
     this.setData({
       menuButtonPosition: wx.getMenuButtonBoundingClientRect(),
+    })
+
+    var deivceName = await app.getDeviceConfig(this.deviceId, "device-name")
+    var isLedOpened = Number(await app.getDeviceConfig(this.deviceId, CONFIG_NAME_LED))
+
+    this.setData({
+      isLedOpened: isLedOpened > 0,
+      deviceName: deivceName,
     })
   },
 
@@ -44,6 +50,18 @@ Page({
 
   onUnload() {
 
+  },
+
+  async switchLed(event: WechatMiniprogram.CustomEvent) {
+    var isLedOpened = event.detail.value
+    wx.showToast({ title: "操作中", icon: 'loading', mask: true, duration: 15000})
+    try {
+      await app.setDeviceConfig(this.deviceId, CONFIG_NAME_LED, isLedOpened? "1" : "0")
+      wx.showToast({ title: "操作成功！", icon: 'success', mask: false, duration: 1000 })
+    } catch (e) {
+      wx.showToast({ title: "操作失败！", icon: 'error', mask: false, duration: 1000 })
+      console.log("Failed to switch led, ", e)
+    }
   },
 
   async btnAdjustWatering() {
@@ -214,7 +232,7 @@ Page({
         app.saveHistoryDevice(app.globalData.connectedDevice)
       }
       this.setData({deviceName: newDeviceName})
-      wx.showToast({ title: "修改成功！", icon: 'error', mask: false, duration: 1000 })
+      wx.showToast({ title: "修改成功！", icon: 'success', mask: false, duration: 1000 })
     } catch(e) {
       wx.showToast({ title: "修改失败！", icon: 'error', mask: false, duration: 1000 })
     }

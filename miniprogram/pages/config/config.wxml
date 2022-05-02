@@ -1,12 +1,29 @@
 <!--pages/config/config.wxml-->
-<view style="height: 100%; display: flex; flex-direction: column;">
-  <view style="height: {{menuButtonPosition.bottom}}px; " ></view>
-  <view style="flex: 1; overflow: scroll;" >
-    <mp-cells>
-      <mp-cell hover="true" catchtap="btnRename" value="设备名" footer="{{deviceName}}"></mp-cell>
-      <mp-cell hover="true" catchtap="btnModPassword" value="修改口令"></mp-cell>
-      <mp-cell hover="true" catchtap="btnAdjustWatering" value="校准出水量" footer="{{adjustingTip}}"></mp-cell>
-    </mp-cells>
-  </view>
+<view style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+  <view style="height: {{menuButtonPosition.bottom + 2}}px; " ></view>
+  <view style="width: 100%; flex: 1; overflow: scroll;" >
+    <view class="config-item-group">
+      <view class="config-item" hover-class="config-item-hover" bindtap="btnRename" hover-stay-time="50">
+        <view class="config-item-head">设备名</view>
+        <view class="config-item-foot">{{deviceName}}</view>
+      </view>
 
+      <view class="config-item" hover-class="config-item-hover" bindtap="btnModPassword" hover-stay-time="50">
+        <text>修改口令</text>
+      </view>
+
+      <view class="config-item">
+        <view class="config-item-head">灯</view>
+        <view class="config-item-foot">
+          <switch checked="{{isLedOpened}}" bindchange="switchLed"/>
+        </view>
+      </view>
+
+      <view class="config-item" hover-class="config-item-hover" bindtap="btnAdjustWatering" hover-stay-time="50">
+        <view class="config-item-head">校准出水量</view>
+        <view class="config-item-foot">{{adjustingTip}}</view>
+      </view>
+
+    </view>
+  </view>
 </view>

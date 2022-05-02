@@ -1,6 +1,7 @@
 /* pages/config/config.wxss */
 page {
   height: 100%;
+  width: 100%;
 }
 
 .head {
@@ -19,4 +20,35 @@ page {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.config-item-group {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  border-top:1rpx #e6e6e6 solid;
+}
+
+.config-item {
+  height: 120rpx;
+  width: 92%;
+  padding-left: 2%;
+  padding-right: 2%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1rpx #e6e6e6 solid;
+}
+
+.config-item-hover {
+  background-color: rgb(245, 245, 245);
+}
+
+.config-item-head {
+
+}
+
+.config-item-foot {
+
 }
