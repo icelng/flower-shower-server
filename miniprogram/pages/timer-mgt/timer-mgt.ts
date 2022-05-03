@@ -186,7 +186,7 @@ Page({
     if (!found) return
 
     wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
-    stopWater(this.deviceId).then(() => {
+    stopWaterTimer(this.deviceId, timerNo).then(() => {
       wx.showToast({ icon: 'success', title: "停止成功", duration: 1000 })
       this.stoppedTimers.set(timerNo, Date.now() / 1000 + calcSecsToStop(timer))
       this.refreshPage()
@@ -666,6 +666,19 @@ async function updateWaterTimer(deivceId: string, timer: WaterTimer): Promise<vo
 async function deleteWaterTimer(deivceId: string, timerNo: number): Promise<void> {
   var buffer = Buffer.alloc(2)
   buffer.writeUInt8(Constants.WATER_TIMER_OP_DELETE, 0)
+  buffer.writeUInt8(timerNo, 1)
+
+  await wx.writeBLECharacteristicValue({
+    deviceId: deivceId,
+    serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+    characteristicId: Constants.CHAR_UUID_WATER_TIMER,
+    value: buffer.buffer
+  })
+}
+
+async function stopWaterTimer(deivceId: string, timerNo: number): Promise<void> {
+  var buffer = Buffer.alloc(2)
+  buffer.writeUInt8(Constants.WATER_TIMER_OP_STOP, 0)
   buffer.writeUInt8(timerNo, 1)
 
   await wx.writeBLECharacteristicValue({

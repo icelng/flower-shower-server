@@ -290,7 +290,7 @@ Page({
 
   async updateWaterSpeedToDevice(speed: number): Promise<void> {
     var buffer = Buffer.alloc(4)
-    buffer.writeFloatLE(speed / 100, 0)
+    buffer.writeFloatLE(Constants.WATER_SPEED_BASE + (1 - Constants.WATER_SPEED_BASE) * speed / 100, 0)
     await wx.writeBLECharacteristicValue({
       deviceId: this.deviceId,
       serviceId: Constants.SERVICE_UUID_WATER_TIMER,

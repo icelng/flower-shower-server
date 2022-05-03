@@ -12,6 +12,7 @@ export class Constants {
   public static WATER_TIMER_OP_CREATE: number = 0
   public static WATER_TIMER_OP_UPDATE: number = 1
   public static WATER_TIMER_OP_DELETE: number = 2
+  public static WATER_TIMER_OP_STOP: number = 3
 
   public static WATER_CONTROL_OP_START: number = 0
   public static WATER_CONTROL_OP_STOP: number = 1
