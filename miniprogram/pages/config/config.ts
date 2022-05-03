@@ -23,6 +23,8 @@ Page({
   startAdjWaterTimestmpMs: 0 as number,
 
   async onLoad() {
+    wx.showToast({ title: "", icon: 'loading', mask: true, duration: 15000})
+
     var deviceId = app.globalData.connectedDevice?.deviceId
     if (deviceId !== undefined) {
       this.deviceId = deviceId
@@ -35,6 +37,8 @@ Page({
 
     var deivceName = await app.getDeviceConfig(this.deviceId, "device-name")
     var isLedOpened = Number(await app.getDeviceConfig(this.deviceId, CONFIG_NAME_LED))
+
+    wx.hideToast()
 
     this.setData({
       isLedOpened: isLedOpened > 0,
@@ -235,7 +239,7 @@ Page({
     if (speed != undefined) {
       buffer = Buffer.alloc(5)
       buffer.writeUInt8(Constants.WATER_CONTROL_OP_START, 0)
-      buffer.writeFloatLE(speed / 100, 1)
+      buffer.writeFloatLE(Constants.WATER_SPEED_BASE + (1 - Constants.WATER_SPEED_BASE) * speed / 100, 1)
     } else {
       buffer = Buffer.alloc(1)
       buffer.writeUInt8(Constants.WATER_CONTROL_OP_START, 0)
@@ -267,7 +271,9 @@ Page({
     var promise = new Promise<number>((resolve, reject) => {
       app.listenCharValueChangeOnce(Constants.CHAR_UUID_WATER_SPEED).then((res) => {
         var buffer = Buffer.from(res.value)
-        resolve(Math.floor(buffer.readFloatLE(0) * 100))
+        var rawSpeed = buffer.readFloatLE(0)
+        var relativeRawSpeed = Math.max(0, rawSpeed - Constants.WATER_SPEED_BASE)
+        resolve(Math.floor(100 * relativeRawSpeed / (1 - Constants.WATER_SPEED_BASE)))
       }).catch((e) => {
         reject(e)
       })

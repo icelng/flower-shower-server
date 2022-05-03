@@ -52,14 +52,14 @@ Page({
         text: '删除',
     }],
     pickerMinutesSecsArray: [] as Array<Array<string>>,
-    checkboxItemsForNewTimer: [{value: 0x02, name: "一", checked: false},
-                               {value: 0x04, name: "二", checked: false},
-                               {value: 0x08, name: "三", checked: false},
-                               {value: 0x10, name: "四", checked: false},
-                               {value: 0x20, name: "五", checked: false},
-                               {value: 0x40, name: "六", checked: false},
-                               {value: 0x01, name: "日", checked: false},
-                               {value: 0x80, name: "每天", checked: false}] as Array<WeekdayItem>,
+    checkboxItemsForNewTimer: [{value: 0x02, name: "一", checked: true},
+                               {value: 0x04, name: "二", checked: true},
+                               {value: 0x08, name: "三", checked: true},
+                               {value: 0x10, name: "四", checked: true},
+                               {value: 0x20, name: "五", checked: true},
+                               {value: 0x40, name: "六", checked: true},
+                               {value: 0x01, name: "日", checked: true},
+                               {value: 0x80, name: "每天", checked: true}] as Array<WeekdayItem>,
     isShowAddTimerContainer: false,
     isUpdateTimer: false,
     updatingTimer: {} as FormattedWaterTimer,
@@ -75,7 +75,7 @@ Page({
   formattedTimers: [] as Array<FormattedWaterTimer>,
   refreshPageTimerNo: undefined as number | undefined,
   stoppedTimers: new Map<number, number>() as Map<number, number>,  // timerNo -> restoreTimestampSecs
-  wdaysForNewTimer: 0 as number,
+  wdaysForNewTimer: 0xFF as number,
 
   async onLoad() {
     if (app.globalData.connectedDevice === undefined) {
@@ -528,10 +528,10 @@ function saveDefaultAddStartTime(time: string): void {
 function loadDefaultAddStartTime(): string {
   try{
     var time = wx.getStorageSync<string>("df-add-start-time")
-    if (time === "") return "12:00"
-    return time
+    if (time) return time
+    else return "22:56"
   } catch {
-    return "12:00"
+    return "22:56"
   }
 }
 
@@ -541,9 +541,11 @@ function saveDefaultVolume(volumeML: number): void {
  
 function loadDefaulVolume(): number {
   try {
-    return wx.getStorageSync<number>("df-volume")
+    var value: number = wx.getStorageSync<number>("df-volume")
+    if (value) return value
+    else return 27
   } catch {
-    return 30
+    return 27
   }
 }
 

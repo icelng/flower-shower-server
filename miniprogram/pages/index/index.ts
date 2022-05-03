@@ -88,13 +88,13 @@ Page({
       await wx.createBLEConnection({deviceId: device.deviceId, timeout: 10000})
       wx.hideToast()
     } catch(e) {
-      wx.showToast({
-          title: "连接失败！",
-          icon: 'error',
-          mask: false,
-          duration: 1000
+      wx.showModal({
+        title: '(Ｔ▽Ｔ)连接失败了\n(它可能深睡眠了，\n需要多叫它几次才醒。。。)',
+        confirmText: "好的",
+        showCancel: false
       })
       console.log("Failed to connect device, ", e)
+      wx.hideToast()
       throw e
     }
 

@@ -16,6 +16,8 @@ export class Constants {
   public static WATER_CONTROL_OP_START: number = 0
   public static WATER_CONTROL_OP_STOP: number = 1
 
+  public static WATER_SPEED_BASE: number = 0.6
+
   public static SERVICE_UUID_SYSTEM_TIME: string = "000000FF-0000-1000-8000-00805F9B34FB"
   public static CHAR_UUID_SYSTEM_TIME: string = "0000FF01-0000-1000-8000-00805F9B34FB"
 

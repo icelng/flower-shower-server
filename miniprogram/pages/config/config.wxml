@@ -45,7 +45,7 @@
 <view class="tune-ws-page">
   <rich-text style="align-self: center;" nodes="<h3>更改浇水速度</h3>"></rich-text>
   <view>当前速度: {{waterSpeedNow}}</view>
-  <view>更改后速度: {{sliderWaterSpeed}}</view>
+  <view>改为速度: {{sliderWaterSpeed}}</view>
   <slider bindchange="sliderWaterSpeedChange" value="{{sliderWaterSpeed}}"/>
   <view style="width: 100%; display: flex; justify-content: space-between; padding-top: 5%;">
     <button bindtap="btnHideTuneWaterSpeedPage" size="mini">取消</button>
