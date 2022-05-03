@@ -12,7 +12,11 @@ Page({
     menuButtonPosition: {} as WechatMiniprogram.Rect,
     deviceName: "" as string,
     adjustingTip: "" as string,
-    isLedOpen: false
+    isLedOpen: false,
+    isShowTuneSpeedPage: false,
+    sliderWaterSpeed: 100,
+    waterSpeedNow: 100,
+    isTryingWaterSpeed: false
   },
   deviceId: "" as string,
   isAdjusting: false as boolean,
@@ -52,6 +56,77 @@ Page({
 
   },
 
+  async btnShowTuneSpeedPage() {
+    var speedNow: number
+    wx.showToast({ title: "", icon: 'loading', mask: true, duration: 15000})
+    try {
+      speedNow = await this.getWaterSpeed()
+      wx.hideToast()
+    } catch (e) {
+      wx.showToast({ title: "操作失败！", icon: 'error', mask: false, duration: 1000 })
+      console.log("Failed to show tune speed page, ", e)
+      return
+    }
+    this.setData({
+      waterSpeedNow: speedNow,
+      sliderWaterSpeed: speedNow,
+      isShowTuneSpeedPage: true
+    })
+  },
+
+  btnHideTuneWaterSpeedPage() {
+    this.setData({ isShowTuneSpeedPage: false })
+  },
+
+  sliderWaterSpeedChange(event: WechatMiniprogram.CustomEvent) {
+    var waterSpeed: number = event.detail.value
+    this.setData({ sliderWaterSpeed: waterSpeed })
+    if (this.data.isTryingWaterSpeed) {
+      this.startWater(this.data.sliderWaterSpeed)
+    }
+  },
+
+  async btnDoUpdateWaterSpeed() {
+    wx.showToast({ title: "更改中", icon: 'loading', mask: true, duration: 15000})
+    try {
+      await this.updateWaterSpeedToDevice(this.data.sliderWaterSpeed)
+      wx.hideToast()
+      wx.showModal({
+        confirmText: "嗯嗯",
+        content: "ヽ(￣▽￣)ﾉ更改成功!\n别忘了得重新校准浇水量！",
+        editable: false,
+        showCancel: false
+      })
+      this.setData({
+        waterSpeedNow: this.data.sliderWaterSpeed
+      })
+    } catch (e) {
+      wx.showToast({ title: "更改失败！", icon: 'error', mask: false, duration: 1000 })
+      console.log("Failed to update water speed to device, ", e)
+      return
+    }
+  },
+
+  async btnTryWaterSpeed() {
+    await this.startWater(this.data.sliderWaterSpeed)
+    this.setData({
+      isTryingWaterSpeed: true
+    })
+  },
+
+  async btnCancelTryWaterSpeed() {
+    await this.stopWater()
+    this.setData({
+      isTryingWaterSpeed: false
+    })
+  },
+
+  async onTuneSpeedPageLeave() {
+    if (this.data.isTryingWaterSpeed) {
+      this.btnCancelTryWaterSpeed()
+    }
+  },
+
   async switchLed(event: WechatMiniprogram.CustomEvent) {
     var isLedOpened = event.detail.value
     wx.showToast({ title: "操作中", icon: 'loading', mask: true, duration: 15000})
@@ -67,8 +142,8 @@ Page({
   async btnAdjustWatering() {
     if (!this.isAdjusting) {
       var res = await wx.showModal({
-        confirmText: "确定",
-        content: '点击"确定"开始出水，再次点击"校准出水量"时停止出水，最后输入出水量即可完成校准。',
+        confirmText: "明白",
+        content: '点击"明白"开始浇水，再次点击"校准浇水量"时停止浇水，最后输入浇水量即可完成校准。',
         editable: false,
         showCancel: true
       })
@@ -77,16 +152,16 @@ Page({
         await this.startWater()
         this.startAdjWaterTimestmpMs = Date.now()
         this.isAdjusting = true
-        this.setData({adjustingTip: "正在出水，点击停止"})
+        this.setData({adjustingTip: "正在浇水，点击停止"})
       }
     } else {
       var contentInStopModal: string
       var confirmTextInStopModal: string
       if ((Date.now() - this.startAdjWaterTimestmpMs) / 1000 < ADVICE_ADJ_WATER_TIME_SEC) {
-        contentInStopModal = "是否停止出水?\n(还没超过 " + ADVICE_ADJ_WATER_TIME_SEC + " 秒，建议再等等)"
+        contentInStopModal = "是否停止浇水?\n(还没超过 " + ADVICE_ADJ_WATER_TIME_SEC + " 秒，建议再等等)"
         confirmTextInStopModal = "现在就停"
       } else {
-        contentInStopModal = "是否停止出水?"
+        contentInStopModal = "是否停止浇水?"
         confirmTextInStopModal = "嗯嗯"
       }
       var res = await wx.showModal({
@@ -106,7 +181,7 @@ Page({
       while (true) {
         res = await wx.showModal({
           confirmText: "确定",
-          title: "一共出了多少毫升的水呢？",
+          title: "一共浇了多少毫升的水呢？",
           editable: true,
           showCancel: true
         })
@@ -140,7 +215,7 @@ Page({
       this.updateMLToDevice(mlPerSec).then(() => {
         wx.showModal({
           confirmText: "嗯嗯",
-          content: "|●´∀`|σ校准成功!\n每秒出水量是: " + mlPerSec.toFixed(3) + " ml",
+          content: "|●´∀`|σ校准成功!\n每秒浇水量是: " + mlPerSec.toFixed(3) + " ml",
           editable: false,
           showCancel: false
         })
@@ -155,9 +230,16 @@ Page({
     }
   },
 
-  async startWater() {
-    var buffer = Buffer.alloc(1)
-    buffer.writeUInt8(Constants.WATER_CONTROL_OP_START, 0)
+  async startWater(speed?: number) {
+    var buffer: Buffer
+    if (speed != undefined) {
+      buffer = Buffer.alloc(5)
+      buffer.writeUInt8(Constants.WATER_CONTROL_OP_START, 0)
+      buffer.writeFloatLE(speed / 100, 1)
+    } else {
+      buffer = Buffer.alloc(1)
+      buffer.writeUInt8(Constants.WATER_CONTROL_OP_START, 0)
+    }
     wx.showToast({ title: "开始中", icon: 'loading', mask: true, duration: 15000})
     await wx.writeBLECharacteristicValue({
       deviceId: this.deviceId,
@@ -179,6 +261,36 @@ Page({
       value: buffer.buffer
     })
     wx.hideToast()
+  },
+
+  async getWaterSpeed(): Promise<number> {
+    var promise = new Promise<number>((resolve, reject) => {
+      app.listenCharValueChangeOnce(Constants.CHAR_UUID_WATER_SPEED).then((res) => {
+        var buffer = Buffer.from(res.value)
+        resolve(Math.floor(buffer.readFloatLE(0) * 100))
+      }).catch((e) => {
+        reject(e)
+      })
+    })
+
+    wx.readBLECharacteristicValue({
+      deviceId: this.deviceId,
+      serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+      characteristicId: Constants.CHAR_UUID_WATER_SPEED
+    })
+
+    return promise
+  },
+
+  async updateWaterSpeedToDevice(speed: number): Promise<void> {
+    var buffer = Buffer.alloc(4)
+    buffer.writeFloatLE(speed / 100, 0)
+    await wx.writeBLECharacteristicValue({
+      deviceId: this.deviceId,
+      serviceId: Constants.SERVICE_UUID_WATER_TIMER,
+      characteristicId: Constants.CHAR_UUID_WATER_SPEED,
+      value: buffer.buffer,
+    })
   },
 
   async updateMLToDevice(ml: number): Promise<void> {

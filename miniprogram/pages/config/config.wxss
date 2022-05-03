@@ -53,3 +53,17 @@ page {
 .config-item-foot {
 
 }
+
+page-container {
+  background: linear-gradient(to top, #f7f7f7, #f3f3f3); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+  width: 100%;
+}
+
+
+.tune-ws-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 5%;
+  padding-top: 2%;
+}

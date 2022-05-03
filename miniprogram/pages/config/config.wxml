@@ -19,11 +19,40 @@
         </view>
       </view>
 
+      <view class="config-item" hover-class="config-item-hover" bindtap="btnShowTuneSpeedPage" hover-stay-time="50">
+        <view class="config-item-head">更改浇水速度</view>
+      </view>
+
       <view class="config-item" hover-class="config-item-hover" bindtap="btnAdjustWatering" hover-stay-time="50">
-        <view class="config-item-head">校准出水量</view>
+        <view class="config-item-head">校准浇水量</view>
         <view class="config-item-foot">{{adjustingTip}}</view>
       </view>
 
     </view>
   </view>
 </view>
+
+<page-container 
+  show="{{isShowTuneSpeedPage}}"
+  round="true"
+  overlay="true"
+  duration="300"
+  position="bottom"
+  close-on-slide-down="{{false}}"
+  bind:beforeleave="onTuneSpeedPageLeave"
+>
+
+<view class="tune-ws-page">
+  <rich-text style="align-self: center;" nodes="<h3>更改浇水速度</h3>"></rich-text>
+  <view>当前速度: {{waterSpeedNow}}</view>
+  <view>更改后速度: {{sliderWaterSpeed}}</view>
+  <slider bindchange="sliderWaterSpeedChange" value="{{sliderWaterSpeed}}"/>
+  <view style="width: 100%; display: flex; justify-content: space-between; padding-top: 5%;">
+    <button bindtap="btnHideTuneWaterSpeedPage" size="mini">取消</button>
+    <button wx:if="{{!isTryingWaterSpeed}}" bindtap="btnTryWaterSpeed" type="primary" size="mini">试试</button>
+    <button wx:else bindtap="btnCancelTryWaterSpeed" size="mini" type="warn" loading>停止</button>
+    <button bindtap="btnDoUpdateWaterSpeed" type="primary" size="mini">确定</button>
+  </view>
+</view>
+
+</page-container>
