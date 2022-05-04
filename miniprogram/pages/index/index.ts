@@ -86,7 +86,6 @@ Page({
 
     try {
       await wx.createBLEConnection({deviceId: device.deviceId, timeout: 10000})
-      wx.hideToast()
     } catch(e) {
       wx.showModal({
         title: '(Ｔ▽Ｔ)连接失败了\n(它可能深睡眠了，\n需要多叫它几次才醒。。。)',
@@ -97,6 +96,18 @@ Page({
       wx.hideToast()
       throw e
     }
+
+    // set mtu
+    try {
+      await wx.setBLEMTU({
+        deviceId: device.deviceId,
+        mtu: 512
+      })
+    } catch (e) {
+      console.log("Failed to set mtu, ", e)
+    }
+
+    wx.hideToast()
 
     var password: string | undefined
     try {

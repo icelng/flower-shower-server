@@ -105,6 +105,7 @@ Page({
     wx.showToast({ icon: 'loading', title: '获取列表', mask: true, duration: 15000 })
     await adjSystemTime(this.deviceId)
     this.timers = await listWaterTimers(this.deviceId)
+    this.refreshPage()
     wx.hideToast()
   },
 
