@@ -11,6 +11,7 @@ interface WaterTimer {
   firstStartTimestampSec: number,
   volumeML: number
   durationSec: number
+  stoppedUntil: number
 }
 
 interface FormattedWaterTimer {
@@ -19,7 +20,8 @@ interface FormattedWaterTimer {
   startTime: string,
   volumeML: number,
   duration: string,
-  isConflicted: boolean
+  isConflicted: boolean,
+  stoppedUntil?: string
 }
 
 interface NextWaterTime {
@@ -70,11 +72,11 @@ Page({
     timers: [] as Array<FormattedWaterTimer>
   },
 
+  isFirstShowPage: true,
   deviceId: "",
   timers: [] as Array<WaterTimer>,
   formattedTimers: [] as Array<FormattedWaterTimer>,
   refreshPageTimerNo: undefined as number | undefined,
-  stoppedTimers: new Map<number, number>() as Map<number, number>,  // timerNo -> restoreTimestampSecs
   wdaysForNewTimer: 0xFF as number,
 
   async onLoad() {
@@ -100,7 +102,10 @@ Page({
       volumeMLForNewTimer: loadDefaulVolume(),
     })
 
-    adjSystemTime(this.deviceId)
+    wx.showToast({ icon: 'loading', title: '获取列表', mask: true, duration: 15000 })
+    await adjSystemTime(this.deviceId)
+    this.timers = await listWaterTimers(this.deviceId)
+    wx.hideToast()
   },
 
   refreshPage() {
@@ -124,14 +129,13 @@ Page({
       return
     }
 
-    this.stoppedTimers = refreshStoppedTimers(this.stoppedTimers)
-    this.timers = sortWaterTimers(this.timers, this.stoppedTimers)
+    this.timers = sortWaterTimers(this.timers)
     var conflictedTimers = findConflictedWaterTimers(this.timers)
     this.formattedTimers = formatWaterTimers(this.timers, conflictedTimers)
     var nextTimer = this.timers[0]
     this.setData({
       nextWaterTime: calcNextWaterTime(nextTimer),
-      wateringStatus: getWateringStatus(nextTimer, this.stoppedTimers.has(nextTimer.timerNo)),
+      wateringStatus: getWateringStatus(nextTimer),
       timers: this.formattedTimers
     })
   },
@@ -167,7 +171,7 @@ Page({
     this.setData({checkboxItemsForNewTimer: newCheckboxItems})
   },
 
-  btnStopTimer() {
+  async btnStopTimer() {
     var wateringStatus = this.data.wateringStatus
     if (!wateringStatus.isWatering ||
         (wateringStatus.minutesLeft === 0 && wateringStatus.secondsLeft === 0)) {
@@ -175,25 +179,24 @@ Page({
     }
 
     var timerNo = wateringStatus.timerNo
-    var timer: WaterTimer
     var found: boolean = false
     for (let t of this.timers) {
       if (t.timerNo === timerNo) {
-        timer = t
         found = true
       }
     }
     if (!found) return
 
-    wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
-    stopWaterTimer(this.deviceId, timerNo).then(() => {
-      wx.showToast({ icon: 'success', title: "停止成功", duration: 1000 })
-      this.stoppedTimers.set(timerNo, Date.now() / 1000 + calcSecsToStop(timer))
+    wx.showToast({ icon: 'loading', title: '停止中', mask: true, duration: 10000 })
+    try {
+      await stopWaterTimer(this.deviceId, timerNo)
+      this.timers = await listWaterTimers(this.deviceId)
       this.refreshPage()
-    }).catch((e) => {
+      wx.showToast({ icon: 'success', title: "停止成功", duration: 1000 })
+    } catch (e) {
       console.log("Failed to stop water, ", e)
       wx.showToast({ icon: 'error', title: "停止失败", duration: 1000 })
-    })
+    }
   },
 
   async btnDeleteTimer(event: WechatMiniprogram.BaseEvent) {
@@ -299,7 +302,8 @@ Page({
       wdays: this.wdaysForNewTimer & 0x7F,
       firstStartTimestampSec: startTimestampSec,
       volumeML: this.data.volumeMLForNewTimer,
-      durationSec: 1
+      durationSec: 1,
+      stoppedUntil: 0
     }
 
     wx.showToast({ icon: 'loading', title: '', mask: true, duration: 10000 })
@@ -344,6 +348,13 @@ Page({
     if (this.refreshPageTimerNo === undefined) {
       this.refreshPageTimerNo = setInterval(this.refreshPage, 1000)
     }
+
+    // skip list tiemrs in first time
+    if (this.isFirstShowPage) {
+      this.isFirstShowPage = false;
+      return
+    }
+
     // silent list
     listWaterTimers(this.deviceId).then((timers) => {
       this.timers = timers
@@ -352,10 +363,11 @@ Page({
   }
 })
 
-function sortWaterTimers(timers: Array<WaterTimer>, stoppedTimers: Map<number, number>): Array<WaterTimer> {
+function sortWaterTimers(timers: Array<WaterTimer>): Array<WaterTimer> {
+  var now_secs = Date.now() / 1000
   var calcWeight = (timer: WaterTimer): number => {
     var weight: number = 0
-    if (stoppedTimers.has(timer.timerNo)) {
+    if (timer.stoppedUntil > now_secs) {
       weight = Number.MAX_VALUE
     } else if (isWatering(timer)) {
       weight = 0
@@ -388,8 +400,9 @@ function calcNextWaterTime(timer: WaterTimer): NextWaterTime {
   return nextWaterTime
 }
 
-function getWateringStatus(timer: WaterTimer, isStopped: boolean): WateringStatus {
+function getWateringStatus(timer: WaterTimer): WateringStatus {
   var secsToStop = calcSecsToStop(timer)
+  var isStopped = timer.stoppedUntil > (Date.now() / 1000)
 
   var wateringStatus: WateringStatus = {
     timerNo: timer.timerNo,
@@ -577,6 +590,7 @@ function formatWdays(wdaysRaw: number): string {
 
 function formatWaterTimers(timers: Array<WaterTimer>, conflictedTimerNos: Set<number>): Array<FormattedWaterTimer> {
   var formattedTimers: Array<FormattedWaterTimer> = []
+  var now_secs = Date.now() / 1000
   timers.forEach((timer) => {
     var formattedTimer: FormattedWaterTimer = {
       timerNo: timer.timerNo,
@@ -584,7 +598,8 @@ function formatWaterTimers(timers: Array<WaterTimer>, conflictedTimerNos: Set<nu
       startTime: formatTimestamp(timer.firstStartTimestampSec),
       volumeML: timer.volumeML,
       duration: formatDuration(timer.durationSec),
-      isConflicted: conflictedTimerNos.has(timer.timerNo)
+      isConflicted: conflictedTimerNos.has(timer.timerNo),
+      stoppedUntil: now_secs < timer.stoppedUntil? formatTimeWithWday(timer.stoppedUntil * 1000) : undefined
     }
     formattedTimers.push(formattedTimer)
   })
@@ -594,7 +609,7 @@ function formatWaterTimers(timers: Array<WaterTimer>, conflictedTimerNos: Set<nu
 async function listWaterTimers(deviceId: string): Promise<Array<WaterTimer>> {
   var promise = new Promise<Array<WaterTimer>>((resolve, reject) => {
     app.listenCharValueChangeOnce(Constants.CHAR_UUID_WATER_TIMER).then((res) => {
-      /*|-num_timers(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|-duration(4)-|*/
+      /*|-num_timers(1)-|-timer_no(1)-|-wdays(1)-|-timestamp(8)-|-ml(4)-|-duration(4)-|-stopped_until(8)-|*/
       var timers: Array<WaterTimer> = []
       var buffer = Buffer.from(res.value)
       var numTimers = buffer.readUInt8(0)
@@ -606,9 +621,10 @@ async function listWaterTimers(deviceId: string): Promise<Array<WaterTimer>> {
           wdays: buffer.readUInt8(offset + 1),
           firstStartTimestampSec: Number(buffer.readBigUInt64LE(offset + 2)),
           volumeML: buffer.readUInt32LE(offset + 10),
-          durationSec: buffer.readUInt32LE(offset + 14)
+          durationSec: buffer.readUInt32LE(offset + 14),
+          stoppedUntil: Number(buffer.readBigUInt64LE(offset + 18))
         }
-        offset += 18
+        offset += 26
         timers.push(timer)
       }
 
@@ -689,6 +705,12 @@ async function stopWaterTimer(deivceId: string, timerNo: number): Promise<void> 
   })
 }
 
+function formatTimeWithWday(timestampMs: number): string {
+  var date = new Date(timestampMs)
+  var translate = ["日", "一", "二", "三", "四", "五", "六"]
+  return `${date.getHours()} 时 ${date.getMinutes()} 分 星期 ${translate[date.getDay()]}`
+}
+
 async function adjSystemTime(deviceId: string): Promise<void> {
   var timestampMs: number = Date.now()
   var buffer = Buffer.alloc(8)
@@ -698,18 +720,6 @@ async function adjSystemTime(deviceId: string): Promise<void> {
     deviceId: deviceId,
     serviceId: Constants.SERVICE_UUID_SYSTEM_TIME,
     characteristicId: Constants.CHAR_UUID_SYSTEM_TIME,
-    value: buffer.buffer,
-  })
-}
-
-async function stopWater(deviceId: string): Promise<void> {
-  var buffer = Buffer.alloc(1)
-  buffer.writeUInt8(Constants.WATER_CONTROL_OP_STOP, 0)
-
-  wx.writeBLECharacteristicValue({
-    deviceId: deviceId,
-    serviceId: Constants.SERVICE_UUID_WATER_TIMER,
-    characteristicId: Constants.CHAR_UUID_WATER_CONTROL,
     value: buffer.buffer,
   })
 }

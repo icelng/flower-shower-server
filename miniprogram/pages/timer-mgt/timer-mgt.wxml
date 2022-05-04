@@ -55,6 +55,7 @@
                 </view>
                 <rich-text nodes="<p>{{item.wdays}}</p>"/>
                 <rich-text nodes="浇水量: {{item.volumeML}} ml 持续时间: {{item.duration}}</p>"/>
+                <view wx:if="{{item.stoppedUntil}}" style="color: red;" >(暂停至: {{item.stoppedUntil}})</view>
               </mp-cell>
             </mp-slideview>
         </view>
