@@ -8,7 +8,7 @@
 </view>
 <scroll-view scroll-y="true" bindscrolltoupper="upper" bindscrolltolower="lower" bindscroll="scroll" scroll-into-view="{{toView}}" scroll-top="{{scrollTop}}">
   <view wx:if="{{historyDevices.length===0}}" style="padding: 10%;">
-    <text>暂无历史连接设备，赶紧点击“扫描新设备”按钮，连接您的浇花器吧 \nヾ(✿ﾟ▽ﾟ)ノ</text>
+    <text>生日快乐呀，川神\(^o^)/~\n暂无历史连接设备，赶紧点击“扫描新设备”按钮，连接您的浇花器吧 \nヾ(✿ﾟ▽ﾟ)ノ</text>
   </view>
   <view wx:else style="display: flex; flex-direction: column; align-items: center;">
     <view class="device-item" wx:for="{{historyDevices}}">
